@@ -18,6 +18,7 @@ app.use(session({
     cookie: { secure: false }
 }));
 
+
 //general setup
 // mongoose.connect("mongodb://localhost/xero_test");
 app.set("view engine", "ejs");
@@ -34,8 +35,6 @@ app.get('/', function(req, res) {
 });
 
 app.get('/connect', function(req, res){
-    console.log("about to connect hoe");
-    
     
     (async () => {
 
