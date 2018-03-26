@@ -7,6 +7,7 @@ var session = require('express-session');
 var bodyParser = require("body-parser");
 var mongoose = require("mongoose");
 
+
 var app = express();
 
 //from xero-node sample app
@@ -20,7 +21,7 @@ app.use(session({
 
 
 //general setup
-// mongoose.connect("mongodb://localhost/xero_test");
+mongoose.connect("mongodb://localhost/bill_alert");
 app.set("view engine", "ejs");
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({extended: true}));
