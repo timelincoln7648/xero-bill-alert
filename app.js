@@ -34,7 +34,7 @@ app.get('/', function(req, res) {
     res.render('home');
 });
 
-app.get('/connect', function(req, res){
+app.get('/connectXero', function(req, res){
     
     (async () => {
 
@@ -55,11 +55,10 @@ app.get('/connect', function(req, res){
     res.redirect(authUrl);
 
     })();
-
 });
 
 // Redirected from xero with oauth results
-app.get('/access', function(req, res) {
+app.get('/accessXero', function(req, res) {
     
     //set verifier and request token
     const oauth_verifier = req.query.oauth_verifier;
@@ -85,13 +84,44 @@ app.get('/access', function(req, res) {
     console.log('Number of invoices:', result.Invoices.length);
     
     //redirect to home page
-    res.redirect('/');
+    res.redirect('/settings');
 
     })();
     
 });
 
+app.get('/disconnectXero', function(req, res){
+   if (req.session.token) {
+       //delete token
+       req.session.token = "";
+   } else {
+       console.log("no token to delete...");
+   }
+   res.redirect('/settings');
+});
 
+app.get('/settings', function(req, res){
+    var connectionStatus = connectedToXero(req);
+    
+    res.render('settings',
+        {
+            connectionStatus: connectionStatus
+        }
+    );
+});
+
+//
+//MY HELPER FUNCTIONS
+//
+
+
+function connectedToXero(req){
+    if (req.session.token) {
+        return true;
+    } else {
+        return false;
+    }
+}
 
 //start server
 app.listen(process.env.PORT, process.env.IP, function(){

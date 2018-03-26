@@ -1,0 +1,61 @@
+<% include partials/header %>
+
+
+<div class="ui main text container segment">
+    <div id="mainBox" class="ui huge header">Settings</div>
+</div>
+
+<br>
+<h2>
+    Xero
+</h2>
+<br>
+
+
+<% if (connectionStatus) { %>
+    <div id="smallBox" class="ui success message">
+      <div class="header">
+        Status
+      </div>
+      <p><i class="check icon"></i> Connected</p>
+    </div>
+    <div>
+        <p>
+            <a href="/disconnectXero">Disconnect from Xero</a>
+        </p>
+    </div>
+<% } else { %>
+    <div id="smallBox" class="ui negative message">
+      <div class="header">
+        Status
+      </div>
+      <p><i class="close icon"></i> Disconnected</p>
+    </div>
+    <br>
+    <div>
+        <p>
+        <a href="/connectXero">
+        <img border="0" alt="W3Schools" src="https://developer.xero.com/static/images/documentation/connect_xero_button_white_2x.png" width="200">
+        </a>
+        </p>
+    </div>
+<% } %>
+
+<br>
+<hr>
+<br>
+<h2>
+    Text Messages
+</h2>
+<br>
+<br>
+<hr>
+<br>
+<h2>
+    Payments
+</h2>
+<br>
+
+
+
+<% include partials/footer %>
