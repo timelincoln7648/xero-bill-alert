@@ -87,7 +87,6 @@ app.get('/access', function(req, res) {
     //redirect to home page
     res.redirect('/');
 
-    
     })();
     
 });
