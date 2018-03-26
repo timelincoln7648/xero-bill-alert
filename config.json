@@ -1,0 +1,7 @@
+{
+	"appType": "partner",
+	"consumerKey": "FRZXTCG8YUB4C2P8DTOIEUAIS41FEM",
+	"consumerSecret": "BO9JLLSOLXWTHVJJQQ1LGKKRRKZ9PC",
+	"callbackUrl": "https://c1c0dafe6fde4807a87e4cfa8d89028e.vfs.cloud9.us-east-2.amazonaws.com/accessXero", 
+	"privateKeyPath": "privatekey.pem"
+}

@@ -1,0 +1,6 @@
+export declare class XeroError extends Error {
+    readonly statusCode: number;
+    readonly data: any;
+    readonly headers: any;
+    constructor(statusCode: number, data: string, headers: any);
+}

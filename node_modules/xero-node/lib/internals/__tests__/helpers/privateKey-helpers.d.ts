@@ -1,0 +1,2 @@
+export declare const validTestCertPath: () => string;
+export declare function testCertString(): string;

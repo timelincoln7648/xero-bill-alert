@@ -1,0 +1,43 @@
+
+.icon {
+  font-size: 2em;
+}
+
+.container.main {
+  margin-top: 7.0em;
+}
+
+.DataTitle {
+  font-weight: bold;
+  font-size: larger;
+}
+
+.my-centered {
+  text-align: center;
+}
+
+#mainBox {
+  text-align: center;
+}
+
+#smallBox {
+  width: 25%;
+}
+
+#contactForm {
+  margin-top: 1em;
+  margin-bottom: 3em;
+  width: 50%;
+}
+
+h1 {
+    margin-left: 2em;
+}
+
+p span {
+  margin-left: 2em;
+}
+
+body {
+  margin-left: 2em;
+}
