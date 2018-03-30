@@ -6,6 +6,11 @@ var express = require("express");
 var session = require('express-session');
 var bodyParser = require("body-parser");
 var mongoose = require("mongoose");
+var AWS = require('aws-sdk');
+var dynamo = require('./dynamo');
+
+// Set the region 
+AWS.config.update({region: 'us-east-2'});
 
 
 var app = express();
@@ -111,10 +116,16 @@ app.get('/settings', function(req, res){
     );
 });
 
+
+app.get('/testFeature', function(req, res){
+    
+    console.log("feature tested.");
+});
+
+
 //
 //MY HELPER FUNCTIONS
 //
-
 
 function connectedToXero(req){
     if (req.session.token) {
