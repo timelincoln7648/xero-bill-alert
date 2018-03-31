@@ -1,3 +1,4 @@
+require('dotenv').config()
 const XeroClient = require('xero-node').AccountingAPIClient;
 const config = require('./config.json');
 const fs = require('fs');
@@ -8,6 +9,7 @@ var bodyParser = require("body-parser");
 var mongoose = require("mongoose");
 var AWS = require('aws-sdk');
 var dynamo = require('./dynamo');
+var twilioConfig = require('./twilioConfig.js');
 
 // Set the region 
 AWS.config.update({region: 'us-east-2'});
@@ -32,6 +34,15 @@ app.use(express.static("public"));
 app.use(bodyParser.urlencoded({extended: true}));
 
 let xero = new XeroClient(config);
+
+
+
+//config API key check
+if(!twilioConfig.API_KEY){
+    console.log("Please set your ACCOUNT_SECURITY_API_KEY environment variable before proceeding.");
+} else {
+    console.log("Accessing Twilio API Key! -> ", twilioConfig.API_KEY);
+}
 
 //ROUTES
 
