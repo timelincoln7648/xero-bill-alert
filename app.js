@@ -3,13 +3,15 @@ const XeroClient = require('xero-node').AccountingAPIClient;
 const config = require('./config.json');
 const fs = require('fs');
 
+
 var express = require("express");
 var session = require('express-session');
 var bodyParser = require("body-parser");
 var mongoose = require("mongoose");
 var AWS = require('aws-sdk');
 var dynamo = require('./dynamo');
-var twilioConfig = require('./twilioConfig.js');
+var twilio = require('./twilio');
+
 
 // Set the region 
 AWS.config.update({region: 'us-east-2'});
@@ -36,13 +38,6 @@ app.use(bodyParser.urlencoded({extended: true}));
 let xero = new XeroClient(config);
 
 
-
-//config API key check
-if(!twilioConfig.API_KEY){
-    console.log("Please set your ACCOUNT_SECURITY_API_KEY environment variable before proceeding.");
-} else {
-    console.log("Accessing Twilio API Key! -> ", twilioConfig.API_KEY);
-}
 
 //ROUTES
 
@@ -130,13 +125,15 @@ app.get('/settings', function(req, res){
 
 app.get('/testFeature', function(req, res){
     
-    console.log("feature tested.");
+    twilio.sendText('3615373072', 'I love Post Malone');
+    res.redirect('/settings');
 });
 
 
 //
 //MY HELPER FUNCTIONS
 //
+
 
 function connectedToXero(req){
     if (req.session.token) {
