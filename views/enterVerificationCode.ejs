@@ -1,0 +1,27 @@
+<% include partials/header %>
+
+<div class="ui main text container segment">
+      <div id="mainBox" class="ui huge header">Enter Verification Code</div>
+</div>
+
+
+<div class="my-centered container main">
+    <br>
+    <h1>Let Bill Alert do the work of keeping track of your bills.</h1>
+    <br>
+    <h3>Please enter the 4 digit code Bill Alert just sent to your phone via text message.</h3>
+</div>
+
+<div class="my-centered container main">
+    <form class="ui form"  action="/checkVerificationCode" method="post">
+        <div class="ui input">
+            <input type="text" name="inputVerificationCode" placeholder="0000">
+        </div>
+        <br>
+        <br>
+        <input type="submit" value="Submit" class="ui green button"/>
+    </form>  
+</div>
+
+
+<% include partials/footer %>

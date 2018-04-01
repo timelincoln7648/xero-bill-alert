@@ -1,0 +1,28 @@
+<% include partials/header %>
+
+<div class="ui main text container segment">
+      <div id="mainBox" class="ui huge header">Get Started</div>
+</div>
+
+<div class="my-centered container main">
+    <br>
+    <h1>Let Bill Alert do the work of keeping track of your bills.</h1>
+    <br>
+    
+    <h3>All you need to get started is to verify a U.S. phone number.</h3>
+</div>
+
+<div class="my-centered container main">
+    <form class="ui form"  action="/verifyPhoneNumber" method="post">
+        <div class="ui input">
+            <input type="text" name="inputPhoneNumber" placeholder="555-555-5555">
+        </div>
+        <br>
+        <br>
+        <input type="submit" value="Verify" class="ui green button"/>
+    </form>  
+</div>
+    
+
+
+<% include partials/footer %>

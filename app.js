@@ -16,9 +16,7 @@ var twilio = require('./twilio');
 // Set the region 
 AWS.config.update({region: 'us-east-2'});
 
-
 var app = express();
-
 //from xero-node sample app
 app.set('trust proxy', 1);
 app.use(session({
@@ -122,10 +120,72 @@ app.get('/settings', function(req, res){
     );
 });
 
+app.get('/getStarted', function(req, res) {
+    
+       //TODO
+        //render with note that verify failed
+        //on page show message that verify failed and to try again
+        
+    res.render('getStarted');
+    
+});
+
+app.get('/enterVerificationCode', function(req, res) {
+   res.render('enterVerificationCode'); 
+});
+
+
+app.post('/verifyPhoneNumber', function(req, res) {
+    var theInputString = req.body.inputPhoneNumber;
+    
+    //clean the input string
+    var cleanedString = theInputString.replace(/\D/g,'');
+    console.log("Cleaned string: "+cleanedString);
+    
+    //check the length
+    if (cleanedString.length !== 10) {
+        console.log("Phone Number length wrong!");
+        res.redirect('/getStarted');
+    } else {
+        //generate a verification code
+        var generatedRandomCode = Math.floor(Math.random() * 10000);
+        req.session.generatedRandomCode = generatedRandomCode;
+        console.log("session generatedRandomCode is: "+req.session.generatedRandomCode);
+    
+        //send text with code
+        twilio.sendText(cleanedString, "Your verification code is: "+req.session.generatedRandomCode);
+        
+        //redirect to code entry page //send code you generated -> so you can compare entry of code on following page
+        res.redirect('/enterVerificationCode');
+    }
+    
+});
+
+app.post('/checkVerificationCode', function(req, res){
+    
+    console.log("About to check this verification code: "+req.body.inputVerificationCode+" against session verification code: "+req.session.generatedRandomCode);
+    
+    //compare input verification code to generated one
+    if (req.body.inputVerificationCode == req.session.generatedRandomCode) {
+        console.log("Code correctly verified!");
+    } else {
+        console.log("Code not verified. Please try again.");
+        
+    }
+    
+    //TODO
+    //store new user in DB
+    
+    //TODO
+    //create passport login session
+    
+    //redirect to settings to setup xero connection
+    res.redirect('/settings');
+});
+
 
 app.get('/testFeature', function(req, res){
     
-    twilio.sendText('3615373072', 'I love Post Malone');
     res.redirect('/settings');
 });
 
