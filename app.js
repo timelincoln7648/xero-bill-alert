@@ -44,6 +44,8 @@ app.get('/', function(req, res) {
     res.render('home');
 });
 
+//XERO
+
 app.get('/connectXero', function(req, res){
     
     (async () => {
@@ -130,6 +132,8 @@ app.get('/getStarted', function(req, res) {
     
 });
 
+//PHONE VERIFICATION
+
 app.get('/enterVerificationCode', function(req, res) {
    res.render('enterVerificationCode'); 
 });
@@ -168,9 +172,12 @@ app.post('/checkVerificationCode', function(req, res){
     //compare input verification code to generated one
     if (req.body.inputVerificationCode == req.session.generatedRandomCode) {
         console.log("Code correctly verified!");
+        //redirect to settings to setup xero connection
+        res.redirect('/settings');
     } else {
         console.log("Code not verified. Please try again.");
-        
+        //redirect to getting started to try again
+        res.redirect('/getStarted');
     }
     
     //TODO
@@ -179,8 +186,7 @@ app.post('/checkVerificationCode', function(req, res){
     //TODO
     //create passport login session
     
-    //redirect to settings to setup xero connection
-    res.redirect('/settings');
+    
 });
 
 
