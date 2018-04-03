@@ -4,13 +4,15 @@ const config = require('./config.json');
 const fs = require('fs');
 
 
-var express = require("express");
-var session = require('express-session');
-var bodyParser = require("body-parser");
-var mongoose = require("mongoose");
-var AWS = require('aws-sdk');
-var dynamo = require('./dynamo');
-var twilio = require('./twilio');
+var express = require("express"),
+    session = require('express-session'),
+    passport = require('passport'),
+    LocalStrategy = require('passport-local'),
+    bodyParser = require("body-parser"),
+    mongoose = require("mongoose"),
+    AWS = require('aws-sdk'),
+    dynamo = require('./dynamo'),
+    twilio = require('./twilio');
 
 
 // Set the region 
@@ -43,6 +45,8 @@ let xero = new XeroClient(config);
 app.get('/', function(req, res) {
     res.render('home');
 });
+
+//XERO
 
 app.get('/connectXero', function(req, res){
     
@@ -130,6 +134,8 @@ app.get('/getStarted', function(req, res) {
     
 });
 
+//PHONE VERIFICATION
+
 app.get('/enterVerificationCode', function(req, res) {
    res.render('enterVerificationCode'); 
 });
@@ -139,21 +145,22 @@ app.post('/verifyPhoneNumber', function(req, res) {
     var theInputString = req.body.inputPhoneNumber;
     
     //clean the input string
-    var cleanedString = theInputString.replace(/\D/g,'');
-    console.log("Cleaned string: "+cleanedString);
+    var userPhoneNumber = returnNumbersOnly(theInputString);
+    console.log("Cleaned string: "+userPhoneNumber);
     
     //check the length
-    if (cleanedString.length !== 10) {
+    if (userPhoneNumber.length !== 10) {
         console.log("Phone Number length wrong!");
         res.redirect('/getStarted');
     } else {
         //generate a verification code
         var generatedRandomCode = Math.floor(Math.random() * 10000);
         req.session.generatedRandomCode = generatedRandomCode;
-        console.log("session generatedRandomCode is: "+req.session.generatedRandomCode);
+        req.session.userPhoneNumber = userPhoneNumber;
+        //console.log("session generatedRandomCode is: "+req.session.generatedRandomCode);
     
         //send text with code
-        twilio.sendText(cleanedString, "Your verification code is: "+req.session.generatedRandomCode);
+        twilio.sendText(userPhoneNumber, "Your verification code is: "+req.session.generatedRandomCode);
         
         //redirect to code entry page //send code you generated -> so you can compare entry of code on following page
         res.redirect('/enterVerificationCode');
@@ -163,30 +170,62 @@ app.post('/verifyPhoneNumber', function(req, res) {
 
 app.post('/checkVerificationCode', function(req, res){
     
-    console.log("About to check this verification code: "+req.body.inputVerificationCode+" against session verification code: "+req.session.generatedRandomCode);
+    //console.log("About to check this verification code: "+req.body.inputVerificationCode+" against session verification code: "+req.session.generatedRandomCode);
     
     //compare input verification code to generated one
     if (req.body.inputVerificationCode == req.session.generatedRandomCode) {
         console.log("Code correctly verified!");
+        
+        
+        //store new user in DB
+        dynamo.createUser(req.session.userPhoneNumber);
+        
+        //TODO
+        //create passport login session
+        
+        //redirect to settings to setup xero connection
+        res.redirect('/settings');
     } else {
         console.log("Code not verified. Please try again.");
-        
+        //redirect to getting started to try again
+        res.redirect('/getStarted');
     }
     
-    //TODO
-    //store new user in DB
-    
-    //TODO
-    //create passport login session
-    
-    //redirect to settings to setup xero connection
-    res.redirect('/settings');
 });
+
+
+//User Login Stuff
+
+//isLoggedIn
+function isLoggedIn(req, res, next){
+  if(req.isAuthenticated()){
+    return next();
+  }
+  res.redirect("/login");
+}
 
 
 app.get('/testFeature', function(req, res){
     
-    res.redirect('/settings');
+    // handle promise's fulfilled/rejected states
+    dynamo.getUser('3615373072').then(
+      function(data) {
+        /* process the data */
+        console.log("User phone number: ", data.Item.phoneNumber);
+        res.redirect('/');
+      },
+      function(error) {
+        /* handle the error */
+        console.log("Error: ", error);
+        res.redirect('/');
+      }
+    );
+    
+});
+
+app.get('/secret', function(req, res){
+   console.log("its a secret shhhh....");
+   res.send("its a secret shhhh....");
 });
 
 
@@ -201,6 +240,10 @@ function connectedToXero(req){
     } else {
         return false;
     }
+}
+
+function returnNumbersOnly(theOriginalString) {
+    return theOriginalString.replace(/\D/g,'');
 }
 
 //start server
