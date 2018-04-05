@@ -6,6 +6,7 @@ var express = require("express");
 var session = require('express-session');
 var bodyParser = require("body-parser");
 var mongoose = require("mongoose");
+var crypto = require("crypto");
 
 var app = express();
 
@@ -25,6 +26,8 @@ app.set("view engine", "ejs");
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({extended: true}));
 
+const xeroWebhookKey = 'YNGJ+to1N5VqQbpUo07eeAyDP/z5VfrIwSMWnKgXcHlCuezpXR4D6poB0gSfPgkix6Xpw57bC7FpDgjojWjYnQ==';
+let xeroWebhookBodyParser = bodyParser.raw({ type: 'application/json' })
 let xero = new XeroClient(config);
 
 //ROUTES
@@ -110,6 +113,48 @@ app.get('/settings', function(req, res){
     );
 });
 
+app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
+
+    console.log("Req: Xero Signature:", req.headers['x-xero-signature'])
+    // Generate Signature
+    var xeroWebhookSignature = crypto.createHmac("sha256", xeroWebhookKey).update(req.body.toString()).digest("base64");
+    
+    console.log("Res: Xero Signature:", xeroWebhookSignature)
+
+    // ITR Check
+    if (req.headers['x-xero-signature'] == xeroWebhookSignature) {
+        // ITR has succeeded, lets process the webhook
+        // Parse body as a json object
+        var jsonBody = JSON.parse(req.body.toString())
+
+        jsonBody['events'].forEach(function(event) {
+            if (event['eventCategory'] == "INVOICE") {
+
+                xero.invoices.get({ InvoiceID: event['resourceId'] })
+                    .then(async function(invoice) {
+                        console.log(invoice.id)
+                        // Enter invoice into DB
+                    }).catch(err => {
+                        // handle error
+                        console.log(err);
+                    });;
+
+            }
+        })
+
+        res.statusCode = 200
+    } else {
+        // ITR Failed
+        console.log("ITR Check Failed, webhook not processed")
+        res.statusCode = 401
+    }
+
+    // a response with a session will be rejected by webhooks, so lets destroy the default session
+    req.session.destroy();
+
+    res.send()
+})
+
 //
 //MY HELPER FUNCTIONS
 //
@@ -125,5 +170,5 @@ function connectedToXero(req){
 
 //start server
 app.listen(process.env.PORT, process.env.IP, function(){
-    console.log("server started homie");
+    console.log("server started homie @ %s:%s", process.env.IP, process.env.PORT );
 });
