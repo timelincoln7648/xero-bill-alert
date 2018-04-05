@@ -11,7 +11,8 @@ var mongoose = require("mongoose");
 var crypto = require("crypto");
 var AWS = require('aws-sdk');
 var dynamo = require('./dynamo');
-var twilio = require('./twilio');
+// var twilio = require('./twilio');
+var schedule = require('node-schedule');
 
 // Set the region 
 AWS.config.update({region: 'us-east-2'});
@@ -28,7 +29,7 @@ app.use(session({
 
 
 //general setup
-mongoose.connect("mongodb://localhost/bill_alert");
+// mongoose.connect("mongodb://localhost/bill_alert");
 app.set("view engine", "ejs");
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({extended: true}));
@@ -37,7 +38,13 @@ const xeroWebhookKey = 'YNGJ+to1N5VqQbpUo07eeAyDP/z5VfrIwSMWnKgXcHlCuezpXR4D6poB
 let xeroWebhookBodyParser = bodyParser.raw({ type: 'application/json' })
 let xero = new XeroClient(config);
 
+// SCHEDULED JOBS
+// Scheduled at 8:30 am each morning
+var dailyJob = schedule.scheduleJob('47 17 * * *', function() {
+    console.log("Scheduled Daily Job Fired")
+    //TODO connect to DB
 
+})
 
 //ROUTES
 
@@ -141,7 +148,7 @@ app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
 
                 // TODO retrieve correct access token from DB
                 // use event['tenantId']
-                
+
                 xero.invoices.get({ InvoiceID: event['resourceId'] })
                     .then(async function(invoice) {
                         console.log(invoice.id)
