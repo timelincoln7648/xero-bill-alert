@@ -40,7 +40,7 @@ let xero = new XeroClient(config);
 
 // SCHEDULED JOBS
 // Scheduled at 8:30 am each morning
-var dailyJob = schedule.scheduleJob('47 17 * * *', function() {
+var dailyJob = schedule.scheduleJob('30 8 * * *', function() {
     console.log("Scheduled Daily Job Fired")
     //TODO connect to DB
 
