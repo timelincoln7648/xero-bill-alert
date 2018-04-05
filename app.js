@@ -1,15 +1,22 @@
+require('dotenv').config()
 const XeroClient = require('xero-node').AccountingAPIClient;
 const config = require('./config.json');
 const fs = require('fs');
+
 
 var express = require("express");
 var session = require('express-session');
 var bodyParser = require("body-parser");
 var mongoose = require("mongoose");
 var crypto = require("crypto");
+var AWS = require('aws-sdk');
+var dynamo = require('./dynamo');
+var twilio = require('./twilio');
+
+// Set the region 
+AWS.config.update({region: 'us-east-2'});
 
 var app = express();
-
 //from xero-node sample app
 app.set('trust proxy', 1);
 app.use(session({
@@ -21,7 +28,7 @@ app.use(session({
 
 
 //general setup
-// mongoose.connect("mongodb://localhost/xero_test");
+mongoose.connect("mongodb://localhost/bill_alert");
 app.set("view engine", "ejs");
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({extended: true}));
@@ -29,6 +36,8 @@ app.use(bodyParser.urlencoded({extended: true}));
 const xeroWebhookKey = 'YNGJ+to1N5VqQbpUo07eeAyDP/z5VfrIwSMWnKgXcHlCuezpXR4D6poB0gSfPgkix6Xpw57bC7FpDgjojWjYnQ==';
 let xeroWebhookBodyParser = bodyParser.raw({ type: 'application/json' })
 let xero = new XeroClient(config);
+
+
 
 //ROUTES
 
@@ -130,10 +139,13 @@ app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
         jsonBody['events'].forEach(function(event) {
             if (event['eventCategory'] == "INVOICE") {
 
+                // TODO retrieve correct access token from DB
+                // use event['tenantId']
+                
                 xero.invoices.get({ InvoiceID: event['resourceId'] })
                     .then(async function(invoice) {
                         console.log(invoice.id)
-                        // Enter invoice into DB
+                        // TODO Enter invoice into DB
                     }).catch(err => {
                         // handle error
                         console.log(err);
@@ -154,6 +166,75 @@ app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
 
     res.send()
 })
+
+app.get('/getStarted', function(req, res) {
+    
+       //TODO
+        //render with note that verify failed
+        //on page show message that verify failed and to try again
+        
+    res.render('getStarted');
+    
+});
+
+app.get('/enterVerificationCode', function(req, res) {
+   res.render('enterVerificationCode'); 
+});
+
+
+app.post('/verifyPhoneNumber', function(req, res) {
+    var theInputString = req.body.inputPhoneNumber;
+    
+    //clean the input string
+    var cleanedString = theInputString.replace(/\D/g,'');
+    console.log("Cleaned string: "+cleanedString);
+    
+    //check the length
+    if (cleanedString.length !== 10) {
+        console.log("Phone Number length wrong!");
+        res.redirect('/getStarted');
+    } else {
+        //generate a verification code
+        var generatedRandomCode = Math.floor(Math.random() * 10000);
+        req.session.generatedRandomCode = generatedRandomCode;
+        console.log("session generatedRandomCode is: "+req.session.generatedRandomCode);
+    
+        //send text with code
+        twilio.sendText(cleanedString, "Your verification code is: "+req.session.generatedRandomCode);
+        
+        //redirect to code entry page //send code you generated -> so you can compare entry of code on following page
+        res.redirect('/enterVerificationCode');
+    }
+    
+});
+
+app.post('/checkVerificationCode', function(req, res){
+    
+    console.log("About to check this verification code: "+req.body.inputVerificationCode+" against session verification code: "+req.session.generatedRandomCode);
+    
+    //compare input verification code to generated one
+    if (req.body.inputVerificationCode == req.session.generatedRandomCode) {
+        console.log("Code correctly verified!");
+    } else {
+        console.log("Code not verified. Please try again.");
+        
+    }
+    
+    //TODO
+    //store new user in DB
+    
+    //TODO
+    //create passport login session
+    
+    //redirect to settings to setup xero connection
+    res.redirect('/settings');
+});
+
+
+app.get('/testFeature', function(req, res){
+    
+    res.redirect('/settings');
+});
 
 //
 //MY HELPER FUNCTIONS
