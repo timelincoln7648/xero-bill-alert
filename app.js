@@ -127,7 +127,7 @@ app.get('/settings', function(req, res){
 app.get('/getStarted', function(req, res) {
     
        //TODO
-        //render with note that verify failed
+        //if redirected here from failed phone verify - render with note that verify failed
         //on page show message that verify failed and to try again
         
     res.render('getStarted');
@@ -157,7 +157,7 @@ app.post('/verifyPhoneNumber', function(req, res) {
         var generatedRandomCode = Math.floor(Math.random() * 10000);
         req.session.generatedRandomCode = generatedRandomCode;
         req.session.userPhoneNumber = userPhoneNumber;
-        //console.log("session generatedRandomCode is: "+req.session.generatedRandomCode);
+        console.log("session generatedRandomCode is: "+req.session.generatedRandomCode);
     
         //send text with code
         twilio.sendText(userPhoneNumber, "Your verification code is: "+req.session.generatedRandomCode);
@@ -176,51 +176,51 @@ app.post('/checkVerificationCode', function(req, res){
     if (req.body.inputVerificationCode == req.session.generatedRandomCode) {
         console.log("Code correctly verified!");
         
+    //store new user in DB
+        dynamo.createUser(req.session.userPhoneNumber).then(
+          function(data) {
+            /* process the data */
+            console.log("Created new user with phone number: ", data.item);
+            
+            //TODO
+            //USE THIS BLOCK TO DO SOMETHING NEXT WITH USER
+            
+            //create passport login session
+            
+            //redirect to settings to finish setup and xero etc
+            res.redirect('/settings');
+          }
+        ).catch(function(error) {
+            console.log("Error creating user: \n",error);
+            res.redirect('/');
+        });
         
-        //store new user in DB
-        dynamo.createUser(req.session.userPhoneNumber);
-        
-        //TODO
-        //create passport login session
-        
-        //redirect to settings to setup xero connection
-        res.redirect('/settings');
     } else {
         console.log("Code not verified. Please try again.");
         //redirect to getting started to try again
         res.redirect('/getStarted');
     }
-    
 });
 
 
-//User Login Stuff
 
-//isLoggedIn
-function isLoggedIn(req, res, next){
-  if(req.isAuthenticated()){
-    return next();
-  }
-  res.redirect("/login");
-}
 
 
 app.get('/testFeature', function(req, res){
     
     // handle promise's fulfilled/rejected states
-    dynamo.getUser('3615373072').then(
+    dynamo.getUser('1111111114').then(
       function(data) {
         /* process the data */
         console.log("User phone number: ", data.Item.phoneNumber);
-        res.redirect('/');
-      },
-      function(error) {
-        /* handle the error */
-        console.log("Error: ", error);
+        //TODO
+        //USE THIS BLOCK TO DO SOMETHING NEXT WITH USER
         res.redirect('/');
       }
-    );
-    
+    ).catch(function(error) {
+        console.log(error);
+        res.redirect('/');
+    });
 });
 
 app.get('/secret', function(req, res){
@@ -232,6 +232,16 @@ app.get('/secret', function(req, res){
 //
 //MY HELPER FUNCTIONS
 //
+
+//User Login Stuff
+
+//Passport isLoggedIn
+function isLoggedIn(req, res, next){
+  if(req.isAuthenticated()){
+    return next();
+  }
+  res.redirect("/login");
+}
 
 
 function connectedToXero(req){

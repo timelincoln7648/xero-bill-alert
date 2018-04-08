@@ -20,30 +20,8 @@ module.exports = {
                 'phoneNumber': phoneNumber
             }
         };
+        //return promise object for async and success/failure handling in main app.js
       return docClient.get(params).promise();
-    },
-  
-    getUserDetails: function (phoneNumber, onSuccess) {
-        
-        // Create DynamoDB document client
-        var docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2012-08-10'});
-        
-        var params = {
-         TableName: "users",
-         Key: 
-            {
-                'phoneNumber': phoneNumber
-            }
-        };
-        
-        const data = docClient.get(params, function(err, data) {
-          if (err) {
-            console.log("Error getting user: ", err);
-          } else {
-            console.log("Success getting user: ", data.Item);
-            onSuccess(data.Item);
-          }
-        });
     },
     
     createUser: function (phoneNumber) {
@@ -59,15 +37,34 @@ module.exports = {
           }
         };
         
-        //add item to table
-        docClient.put(params, function(err, data) {
-          if (err) {
-            console.log("Error creating new user: ", err);
-          } else {
-            console.log("Success creating new user: ", data);
-          }
-        });
-    },
+        return docClient.put(params).promise();
+    }
+  
+    //old way of getting user details without using promises
+    // getUserDetails: function (phoneNumber, onSuccess) {
+        
+    //     // Create DynamoDB document client
+    //     var docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2012-08-10'});
+        
+    //     var params = {
+    //     TableName: "users",
+    //     Key: 
+    //         {
+    //             'phoneNumber': phoneNumber
+    //         }
+    //     };
+        
+    //     const data = docClient.get(params, function(err, data) {
+    //       if (err) {
+    //         console.log("Error getting user: ", err);
+    //       } else {
+    //         console.log("Success getting user: ", data.Item);
+    //         onSuccess(data.Item);
+    //       }
+    //     });
+    // },
+    
+    
     
     // createTable: function () {
     //     // Create the DynamoDB service object

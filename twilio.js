@@ -22,7 +22,7 @@ module.exports = {
     client.notify
       .services(twilioConfig.NOTIFY_SERVICE_SID)
       .notifications.create(notificationOpts)
-      .then(notification => console.log("Sent notification, SID: ", notification.sid))
+      // .then(notification => console.log("Sent notification, SID: ", notification.sid))
       .catch(error => console.log(error));
     },
     
