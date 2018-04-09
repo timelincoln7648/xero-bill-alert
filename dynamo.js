@@ -38,7 +38,46 @@ module.exports = {
         };
         
         return docClient.put(params).promise();
+    },
+    
+    updateUserXeroAccessToken: function (phoneNumber, xeroAccessToken) {
+        var docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2012-08-10'});
+        var params = {
+         TableName: "users",
+         Key: 
+            {
+                'phoneNumber': phoneNumber
+            },
+        UpdateExpression: "set xeroAccessToken = :xeroAccessToken",
+            ExpressionAttributeValues: {
+                ":xeroAccessToken": xeroAccessToken
+            },
+            ReturnValues:"UPDATED_NEW"
+        };
+        
+        //return promise object for async and success/failure handling in main app.js
+        return docClient.update(params).promise();
+    },
+    
+    updateUserOrgName: function (phoneNumber, orgName) {
+      var docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2012-08-10'});
+      var params = {
+         TableName: "users",
+         Key: 
+            {
+                'phoneNumber': phoneNumber
+            },
+        UpdateExpression: "set orgName = :orgName",
+            ExpressionAttributeValues: {
+                ":orgName": orgName
+            },
+            ReturnValues:"UPDATED_NEW"
+        };
+        
+        //return promise object for async and success/failure handling in main app.js
+      return docClient.update(params).promise();
     }
+    
   
     //old way of getting user details without using promises
     // getUserDetails: function (phoneNumber, onSuccess) {

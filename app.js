@@ -6,10 +6,10 @@ const fs = require('fs');
 
 var express = require("express"),
     session = require('express-session'),
-    passport = require('passport'),
-    LocalStrategy = require('passport-local'),
+    // passport = require('passport'),
+    // LocalStrategy = require('passport-local'),
     bodyParser = require("body-parser"),
-    mongoose = require("mongoose"),
+    // mongoose = require("mongoose"),
     AWS = require('aws-sdk'),
     dynamo = require('./dynamo'),
     twilio = require('./twilio');
@@ -22,7 +22,7 @@ var app = express();
 //from xero-node sample app
 app.set('trust proxy', 1);
 app.use(session({
-    secret: 'something crazy',
+    secret: 'bidi bidi bom bom',
     resave: false,
     saveUninitialized: true,
     cookie: { secure: false }
@@ -30,7 +30,7 @@ app.use(session({
 
 
 //general setup
-mongoose.connect("mongodb://localhost/bill_alert");
+// mongoose.connect("mongodb://localhost/bill_alert");
 app.set("view engine", "ejs");
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({extended: true}));
@@ -85,20 +85,24 @@ app.get('/accessXero', function(req, res) {
     // Once the user has authorised your app, swap Request token for Access token
     (async () => {
     
-    const accessToken = await xero.oauth1Client.swapRequestTokenforAccessToken(savedRequestToken, oauth_verifier);
-    console.log('Received Access Token:', accessToken);
+        const accessToken = await xero.oauth1Client.swapRequestTokenforAccessToken(savedRequestToken, oauth_verifier);
+        console.log('Received Access Token:', accessToken);
+        
+        // You should now store the access token securely for the user.
+        req.session.token = accessToken;
+        console.log(req.session);
     
-    // You should now store the access token securely for the user.
-    req.session.token = accessToken;
-    console.log(req.session);
-    
-    //example
-    // You can make API calls straight away
-    const result = await xero.invoices.get();
-    console.log('Number of invoices:', result.Invoices.length);
-    
-    //redirect to home page
-    res.redirect('/settings');
+        //store access token in database
+        //try adding org name to user in dynamo
+        dynamo.updateUserXeroAccessToken(req.session.userPhoneNumber, accessToken).then(
+          function(data) {
+            console.log("Succesfully updated item: ", data.Item);
+            res.redirect('/settings');
+          }
+        ).catch(function(error) {
+            console.log(error);
+            res.redirect('/');
+        });
 
     })();
     
@@ -117,11 +121,24 @@ app.get('/disconnectXero', function(req, res){
 app.get('/settings', function(req, res){
     var connectionStatus = connectedToXero(req);
     
+//use to block access to settings to logged in only
+    // if (req.session.userLoggedIn) {
+    //     res.render('settings',
+    //         {
+    //             connectionStatus: connectionStatus
+    //         }
+    //     );
+    // } else {
+    //     //if you're not logged in you can't get to settings
+    //     res.redirect('/');
+    // }
+    
     res.render('settings',
         {
             connectionStatus: connectionStatus
         }
     );
+    
 });
 
 app.get('/getStarted', function(req, res) {
@@ -145,22 +162,22 @@ app.post('/verifyPhoneNumber', function(req, res) {
     var theInputString = req.body.inputPhoneNumber;
     
     //clean the input string
-    var userPhoneNumber = returnNumbersOnly(theInputString);
-    console.log("Cleaned string: "+userPhoneNumber);
+    var userInputPhoneNumber = returnNumbersOnly(theInputString);
+    console.log("Cleaned string: "+userInputPhoneNumber);
     
     //check the length
-    if (userPhoneNumber.length !== 10) {
+    if (userInputPhoneNumber.length !== 10) {
         console.log("Phone Number length wrong!");
         res.redirect('/getStarted');
     } else {
         //generate a verification code
         var generatedRandomCode = Math.floor(Math.random() * 10000);
         req.session.generatedRandomCode = generatedRandomCode;
-        req.session.userPhoneNumber = userPhoneNumber;
+        req.session.latestInputPhoneNumber = userInputPhoneNumber;
         console.log("session generatedRandomCode is: "+req.session.generatedRandomCode);
     
         //send text with code
-        twilio.sendText(userPhoneNumber, "Your verification code is: "+req.session.generatedRandomCode);
+        twilio.sendText(userInputPhoneNumber, "Your verification code is: "+req.session.generatedRandomCode);
         
         //redirect to code entry page //send code you generated -> so you can compare entry of code on following page
         res.redirect('/enterVerificationCode');
@@ -176,16 +193,17 @@ app.post('/checkVerificationCode', function(req, res){
     if (req.body.inputVerificationCode == req.session.generatedRandomCode) {
         console.log("Code correctly verified!");
         
+        //store userPhoneNumber now that it's verified
+        req.session.userPhoneNumber = req.session.latestInputPhoneNumber;
+        
     //store new user in DB
         dynamo.createUser(req.session.userPhoneNumber).then(
           function(data) {
             /* process the data */
             console.log("Created new user with phone number: ", data.item);
             
-            //TODO
-            //USE THIS BLOCK TO DO SOMETHING NEXT WITH USER
-            
-            //create passport login session
+            //setup user logged-in session
+            req.session.userLoggedIn = true;
             
             //redirect to settings to finish setup and xero etc
             res.redirect('/settings');
@@ -208,19 +226,57 @@ app.post('/checkVerificationCode', function(req, res){
 
 app.get('/testFeature', function(req, res){
     
-    // handle promise's fulfilled/rejected states
-    dynamo.getUser('1111111114').then(
+    //YOU'RE TRYING TO USE ACCESS TOKEN RETRIEVED FROM DB
+        
+        //TODO in production
+        //if loggedIN
+        
+        //check if session has access token 
+        // if (connectedToXero(req)) {
+        //   //check if access token expired
+        //   //if so refresh and store in session+DB
+        // } 
+        //else 
+        //check if DB has access token
+        //if yes refresh
+        //if no say error you must connect to xero first
+    
+    
+    //load access token into session for use by xero client
+    dynamo.getUser('1111111116').then(
       function(data) {
-        /* process the data */
-        console.log("User phone number: ", data.Item.phoneNumber);
-        //TODO
-        //USE THIS BLOCK TO DO SOMETHING NEXT WITH USER
-        res.redirect('/');
+        console.log("User phone number: ", data.Item);
+        
+        //set the AccessToken on the Xero client???
+        
+        const xero2 = new XeroClient(config, data.Item.xeroAccessToken);
+        
+        
+        //try to use xero
+        (async () => {
+            
+            const newAccessToken = await xero2.oauth1Client.refreshAccessToken();
+            const xero3 = new XeroClient(config, newAccessToken);
+            
+            const result = await xero3.invoices.get();
+            console.log('Number of invoices:', result.Invoices.length);
+        })();
+        
+        res.redirect('/settings');
       }
     ).catch(function(error) {
         console.log(error);
         res.redirect('/');
     });
+    
+    
+    
+    
+    
+    // // You can make API calls straight away
+    //  const result = await xero.invoices.get();
+    // console.log('Number of invoices:', result.Invoices.length);
+    
 });
 
 app.get('/secret', function(req, res){
@@ -233,16 +289,34 @@ app.get('/secret', function(req, res){
 //MY HELPER FUNCTIONS
 //
 
-//User Login Stuff
-
-//Passport isLoggedIn
-function isLoggedIn(req, res, next){
-  if(req.isAuthenticated()){
-    return next();
-  }
-  res.redirect("/login");
+function updateUserOrgName (req, res,phoneNumber, orgName) {
+    //try adding org name to user in dynamo
+    dynamo.updateUserOrgName(phoneNumber, orgName).then(
+      function(data) {
+        console.log("Succesfully updated item: ", data.Item);
+        
+        res.redirect('/settings');
+      }
+    ).catch(function(error) {
+        console.log(error);
+        res.redirect('/');
+    });
 }
 
+function getUser(req, res) {
+    // handle promise's fulfilled/rejected states
+    dynamo.getUser('1111111116').then(
+      function(data) {
+        console.log("User phone number: ", data.Item);
+        //TODO
+        //USE THIS BLOCK TO DO SOMETHING NEXT WITH USER
+        res.redirect('/');
+      }
+    ).catch(function(error) {
+        console.log(error);
+        res.redirect('/');
+    });
+}
 
 function connectedToXero(req){
     if (req.session.token) {
@@ -255,6 +329,11 @@ function connectedToXero(req){
 function returnNumbersOnly(theOriginalString) {
     return theOriginalString.replace(/\D/g,'');
 }
+
+
+
+
+
 
 //start server
 app.listen(process.env.PORT, process.env.IP, function(){
