@@ -49,26 +49,19 @@
     <a href="/testFeature">Test Feature</a>
 </h2>
 <br>
-
 <br>
 <hr>
 <br>
-<h2>
-    Text Messages
-</h2>
 <br>
-<div class="ui input">
-  <input type="text" placeholder="Phone Number">
-</div>
 
 
-<br>
-<hr>
-<br>
-<h2>
-    Payments
-</h2>
-<br>
+<% if (locals.userLoggedIn) { %> 
+
+    <p>
+        <a class="ui red button" href="/logout">Logout</a>
+    </p>
+
+<% } %>
 
 
 

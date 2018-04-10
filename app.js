@@ -13,6 +13,7 @@ var express = require("express"),
     AWS = require('aws-sdk'),
     dynamo = require('./dynamo'),
     twilio = require('./twilio');
+    
 
 
 // Set the region 
@@ -27,6 +28,11 @@ app.use(session({
     saveUninitialized: true,
     cookie: { secure: false }
 }));
+
+app.use(function(req, res, next) {
+  res.locals = req.session;
+  next();
+});
 
 
 //general setup
@@ -94,6 +100,7 @@ app.get('/accessXero', function(req, res) {
     
         //store access token in database
         //try adding org name to user in dynamo
+        console.log("primary key value: ", req.session.userPhoneNumber);
         dynamo.updateUserXeroAccessToken(req.session.userPhoneNumber, accessToken).then(
           function(data) {
             console.log("Succesfully updated item: ", data.Item);
@@ -121,23 +128,17 @@ app.get('/disconnectXero', function(req, res){
 app.get('/settings', function(req, res){
     var connectionStatus = connectedToXero(req);
     
-//use to block access to settings to logged in only
-    // if (req.session.userLoggedIn) {
-    //     res.render('settings',
-    //         {
-    //             connectionStatus: connectionStatus
-    //         }
-    //     );
-    // } else {
-    //     //if you're not logged in you can't get to settings
-    //     res.redirect('/');
-    // }
-    
-    res.render('settings',
-        {
-            connectionStatus: connectionStatus
-        }
-    );
+// use to block access to settings to logged in only
+    if (req.session.userLoggedIn) {
+        res.render('settings',
+            {
+                connectionStatus: connectionStatus
+            }
+        );
+    } else {
+        //if you're not logged in you can't get to settings
+        res.redirect('/');
+    }
     
 });
 
@@ -160,16 +161,45 @@ app.get('/enterVerificationCode', function(req, res) {
 
 app.post('/verifyPhoneNumber', function(req, res) {
     var theInputString = req.body.inputPhoneNumber;
+    var userFound = false;
     
     //clean the input string
     var userInputPhoneNumber = returnNumbersOnly(theInputString);
     console.log("Cleaned string: "+userInputPhoneNumber);
-    
-    //check the length
     if (userInputPhoneNumber.length !== 10) {
         console.log("Phone Number length wrong!");
-        res.redirect('/getStarted');
-    } else {
+        return res.redirect('/');
+    }
+    
+    (async () => {
+    
+        //if user is clicking through from login try to find them in database and if you can't redirect to getStarted
+        if (req.body.isLoginAttempt) {
+            let response = await dynamo.getUser(userInputPhoneNumber).then(
+              function(data) {
+                if (data.Item == undefined) {
+                    //if you can't find them error and redirect to getting started
+                    console.log("Couldn't find user in database.\n");
+                    return res.redirect('/getStarted');
+                } else {
+                    console.log("got user from DB: ", data.Item);
+                    req.session.registeredUserIsAttemptingLogin = "true";
+                    userFound = true;
+                }
+              }
+            ).catch(function(error) {
+                //if you can't find them error and redirect to getting started
+                console.log("Caught error:\n", error);
+                return res.redirect('/getStarted');
+            });
+        }
+        
+        // return out of route scope if someone tries to login but they can't be found in DB
+        if (req.body.isLoginAttempt && !userFound) {
+            console.log("about to try to return");
+            return;
+        }
+       
         //generate a verification code
         var generatedRandomCode = Math.floor(Math.random() * 10000);
         req.session.generatedRandomCode = generatedRandomCode;
@@ -181,46 +211,68 @@ app.post('/verifyPhoneNumber', function(req, res) {
         
         //redirect to code entry page //send code you generated -> so you can compare entry of code on following page
         res.redirect('/enterVerificationCode');
-    }
     
+    })();
 });
 
 app.post('/checkVerificationCode', function(req, res){
     
+    console.log("Before we compare codes, let's look at the session object:\n", req.session);
+    
     //console.log("About to check this verification code: "+req.body.inputVerificationCode+" against session verification code: "+req.session.generatedRandomCode);
     
-    //compare input verification code to generated one
+    //compare input verification code to grenerated one
     if (req.body.inputVerificationCode == req.session.generatedRandomCode) {
-        console.log("Code correctly verified!");
         
-        //store userPhoneNumber now that it's verified
-        req.session.userPhoneNumber = req.session.latestInputPhoneNumber;
-        
-    //store new user in DB
-        dynamo.createUser(req.session.userPhoneNumber).then(
-          function(data) {
-            /* process the data */
-            console.log("Created new user with phone number: ", data.item);
-            
+        if (req.session.registeredUserIsAttemptingLogin == "true") {
             //setup user logged-in session
             req.session.userLoggedIn = true;
             
-            //redirect to settings to finish setup and xero etc
-            res.redirect('/settings');
-          }
-        ).catch(function(error) {
-            console.log("Error creating user: \n",error);
-            res.redirect('/');
-        });
+            //store userPhoneNumber now that they're verified/logged in
+            req.session.userPhoneNumber = req.session.latestInputPhoneNumber;
+            
+            console.log("Success logging in!");
+            res.redirect("/settings");
+        } else {
+        
+            //store userPhoneNumber now that it's verified
+            req.session.userPhoneNumber = req.session.latestInputPhoneNumber;
+            
+            //store new user in DB
+            dynamo.createUser(req.session.userPhoneNumber).then(
+              function(data) {
+                /* process the data */
+                console.log("Created new user with phone number: ", data.item);
+                
+                //setup user logged-in session
+                req.session.userLoggedIn = true;
+                
+                //redirect to settings to finish setup and xero etc
+                res.redirect('/settings');
+              }
+            ).catch(function(error) {
+                console.log("Error creating user: \n",error);
+                res.redirect('/');
+            });
+        }
         
     } else {
         console.log("Code not verified. Please try again.");
         //redirect to getting started to try again
-        res.redirect('/getStarted');
+        res.redirect('/');
     }
 });
 
 
+app.get('/login', function(req, res) {
+   res.render('login'); 
+});
+
+app.get('/logout', function(req, res) {
+    //reset session
+    req.session.destroy();
+    res.redirect('/');
+});
 
 
 
@@ -243,22 +295,31 @@ app.get('/testFeature', function(req, res){
     
     
     //load access token into session for use by xero client
-    dynamo.getUser('1111111116').then(
+    dynamo.getUser(req.session.userPhoneNumber).then(
       function(data) {
-        console.log("User phone number: ", data.Item);
+        console.log("got user from DB: ", data.Item);
+        console.log("Xero AccessToken expires at: ", data.Item.xeroAccessToken.oauth_expires_at);
         
-        //set the AccessToken on the Xero client???
         
+        //set the DB AccessToken on the Xero client???
         const xero2 = new XeroClient(config, data.Item.xeroAccessToken);
+        
+        //TODO
+        //check if expired!! 
+        //if yes -> Refresh
+        
+        
+        //else try to use API
         
         
         //try to use xero
         (async () => {
+            // IF EXPIRED -> refresh token and make new xero client with it
+            // const newAccessToken = await xero2.oauth1Client.refreshAccessToken();
+            // console.log("Got new access token: ", newAccessToken);
+            // const xero3 = new XeroClient(config, newAccessToken);
             
-            const newAccessToken = await xero2.oauth1Client.refreshAccessToken();
-            const xero3 = new XeroClient(config, newAccessToken);
-            
-            const result = await xero3.invoices.get();
+            const result = await xero2.invoices.get();
             console.log('Number of invoices:', result.Invoices.length);
         })();
         
@@ -268,26 +329,13 @@ app.get('/testFeature', function(req, res){
         console.log(error);
         res.redirect('/');
     });
-    
-    
-    
-    
-    
-    // // You can make API calls straight away
-    //  const result = await xero.invoices.get();
-    // console.log('Number of invoices:', result.Invoices.length);
-    
-});
-
-app.get('/secret', function(req, res){
-   console.log("its a secret shhhh....");
-   res.send("its a secret shhhh....");
 });
 
 
 //
 //MY HELPER FUNCTIONS
 //
+
 
 function updateUserOrgName (req, res,phoneNumber, orgName) {
     //try adding org name to user in dynamo

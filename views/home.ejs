@@ -19,16 +19,19 @@
 
 
 <div class="my-centered container main">
+    
+    <% if (!locals.userLoggedIn) { %>
+    
     <p>
         <a class="ui red button" href="/getStarted">Get Started</a>
     </p>
     <br>
    
     <p>
-        <button class="ui blue button">Login</button>
+        <a class="ui blue button" href="/login">Login</a>
     </p>
 </div>
 
-
+    <% } %>
 
 <% include partials/footer %>
