@@ -18,6 +18,8 @@
     "fs": "0.0.1-security",
     "mongodb": "^3.0.5",
     "mongoose": "^5.0.11",
+    "passport": "^0.4.0",
+    "passport-local": "^1.0.0",
     "random-int": "^1.0.0",
     "twilio": "^3.14.0",
     "uuid": "^3.2.1",

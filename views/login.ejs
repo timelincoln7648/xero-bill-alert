@@ -1,0 +1,29 @@
+<% include partials/header %>
+
+
+<div class="ui main text container segment">
+      <div id="mainBox" class="ui huge header">Login</div>
+</div>
+
+
+<div class="my-centered container main">
+    <br>
+    <h3>Please enter the phone number you set up your account with.</h3>
+</div>
+
+<div class="my-centered container main">
+    <form class="ui form"  action="/verifyPhoneNumber" method="post">
+        <div class="ui input">
+            <input type="text" name="inputPhoneNumber" placeholder="555-555-5555">
+            <input type="hidden" value="true" name="isLoginAttempt" />
+        </div>
+        <br>
+        <br>
+        <input type="submit" value="Verify" class="ui green button"/>
+    </form>  
+</div>
+
+
+
+
+<% include partials/footer %>
