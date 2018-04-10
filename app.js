@@ -4,6 +4,11 @@ const config = require('./config.json');
 const fs = require('fs');
 
 
+
+
+var crypto = require("crypto");
+var schedule = require('node-schedule');
+
 var express = require("express"),
     session = require('express-session'),
     // passport = require('passport'),
@@ -14,6 +19,7 @@ var express = require("express"),
     dynamo = require('./dynamo'),
     twilio = require('./twilio');
     
+
 
 
 // Set the region 
@@ -41,9 +47,17 @@ app.set("view engine", "ejs");
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({extended: true}));
 
+const xeroWebhookKey = 'YNGJ+to1N5VqQbpUo07eeAyDP/z5VfrIwSMWnKgXcHlCuezpXR4D6poB0gSfPgkix6Xpw57bC7FpDgjojWjYnQ==';
+let xeroWebhookBodyParser = bodyParser.raw({ type: 'application/json' })
 let xero = new XeroClient(config);
 
+// SCHEDULED JOBS
+// Scheduled at 8:30 am each morning
+var dailyJob = schedule.scheduleJob('30 8 * * *', function() {
+    console.log("Scheduled Daily Job Fired")
+    //TODO connect to DB
 
+})
 
 //ROUTES
 
@@ -142,6 +156,51 @@ app.get('/settings', function(req, res){
     
 });
 
+app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
+
+    console.log("Req: Xero Signature:", req.headers['x-xero-signature'])
+    // Generate Signature
+    var xeroWebhookSignature = crypto.createHmac("sha256", xeroWebhookKey).update(req.body.toString()).digest("base64");
+    
+    console.log("Res: Xero Signature:", xeroWebhookSignature)
+
+    // ITR Check
+    if (req.headers['x-xero-signature'] == xeroWebhookSignature) {
+        // ITR has succeeded, lets process the webhook
+        // Parse body as a json object
+        var jsonBody = JSON.parse(req.body.toString())
+
+        jsonBody['events'].forEach(function(event) {
+            if (event['eventCategory'] == "INVOICE") {
+
+                // TODO retrieve correct access token from DB
+                // use event['tenantId']
+
+                xero.invoices.get({ InvoiceID: event['resourceId'] })
+                    .then(async function(invoice) {
+                        console.log(invoice.id)
+                        // TODO Enter invoice into DB
+                    }).catch(err => {
+                        // handle error
+                        console.log(err);
+                    });;
+
+            }
+        })
+
+        res.statusCode = 200
+    } else {
+        // ITR Failed
+        console.log("ITR Check Failed, webhook not processed")
+        res.statusCode = 401
+    }
+
+    // a response with a session will be rejected by webhooks, so lets destroy the default session
+    req.session.destroy();
+
+    res.send()
+})
+
 app.get('/getStarted', function(req, res) {
     
        //TODO
@@ -223,25 +282,7 @@ app.post('/checkVerificationCode', function(req, res){
     
     //compare input verification code to grenerated one
     if (req.body.inputVerificationCode == req.session.generatedRandomCode) {
-<<<<<<< HEAD
-        console.log("Code correctly verified!");
-        //redirect to settings to setup xero connection
-        res.redirect('/settings');
-    } else {
-        console.log("Code not verified. Please try again.");
-        //redirect to getting started to try again
-        res.redirect('/getStarted');
-    }
-    
-    //TODO
-    //store new user in DB
-    
-    //TODO
-    //create passport login session
-    
-    
-=======
-        
+
         if (req.session.registeredUserIsAttemptingLogin == "true") {
             //setup user logged-in session
             req.session.userLoggedIn = true;
@@ -279,7 +320,7 @@ app.post('/checkVerificationCode', function(req, res){
         //redirect to getting started to try again
         res.redirect('/');
     }
->>>>>>> userLogin
+
 });
 
 
@@ -350,7 +391,6 @@ app.get('/testFeature', function(req, res){
     });
 });
 
-
 //
 //MY HELPER FUNCTIONS
 //
@@ -404,5 +444,5 @@ function returnNumbersOnly(theOriginalString) {
 
 //start server
 app.listen(process.env.PORT, process.env.IP, function(){
-    console.log("server started homie");
+    console.log("server started homie @ %s:%s", process.env.IP, process.env.PORT );
 });
