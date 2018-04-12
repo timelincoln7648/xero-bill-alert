@@ -259,8 +259,8 @@ app.post('/verifyPhoneNumber', function(req, res) {
             return;
         }
        
-        //generate a verification code
-        var generatedRandomCode = Math.floor(Math.random() * 10000);
+        //generate a 4 digit verification code
+        const generatedRandomCode = Math.floor(Math.random() * (9999 - 1000) + 1000);
         req.session.generatedRandomCode = generatedRandomCode;
         req.session.latestInputPhoneNumber = userInputPhoneNumber;
         console.log("session generatedRandomCode is: "+req.session.generatedRandomCode);
