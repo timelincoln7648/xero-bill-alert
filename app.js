@@ -106,15 +106,13 @@ app.get('/accessXero', function(req, res) {
     (async () => {
     
         const accessToken = await xero.oauth1Client.swapRequestTokenforAccessToken(savedRequestToken, oauth_verifier);
-        console.log('Received Access Token:', accessToken);
+        console.log('Received Access Token:\n', accessToken);
         
         // You should now store the access token securely for the user.
         req.session.token = accessToken;
         console.log(req.session);
     
         //store access token in database
-        //try adding org name to user in dynamo
-        console.log("primary key value: ", req.session.userPhoneNumber);
         dynamo.updateUserXeroAccessToken(req.session.userPhoneNumber, accessToken).then(
           function(data) {
             console.log("Succesfully updated item: ", data.Item);
@@ -141,19 +139,17 @@ app.get('/disconnectXero', function(req, res){
 
 app.get('/settings', function(req, res){
     var connectionStatus = connectedToXero(req);
+    console.log("connectionStatus: ", connectionStatus);
     
 // use to block access to settings to logged in only
     if (req.session.userLoggedIn) {
         res.render('settings',
-            {
-                connectionStatus: connectionStatus
-            }
+            {connectionStatus: connectionStatus}
         );
     } else {
         //if you're not logged in you can't get to settings
         res.redirect('/');
     }
-    
 });
 
 app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
@@ -293,7 +289,7 @@ app.post('/checkVerificationCode', function(req, res){
             console.log("Success logging in!");
             res.redirect("/settings");
         } else {
-        
+            //this is a new user registration
             //store userPhoneNumber now that it's verified
             req.session.userPhoneNumber = req.session.latestInputPhoneNumber;
             
@@ -337,59 +333,57 @@ app.get('/logout', function(req, res) {
 
 
 app.get('/testFeature', function(req, res){
-    
     //YOU'RE TRYING TO USE ACCESS TOKEN RETRIEVED FROM DB
-        
-        //TODO in production
-        //if loggedIN
-        
-        //check if session has access token 
-        // if (connectedToXero(req)) {
-        //   //check if access token expired
-        //   //if so refresh and store in session+DB
-        // } 
-        //else 
-        //check if DB has access token
-        //if yes refresh
-        //if no say error you must connect to xero first
-    
-    
+    res.redirect('/refreshToken');
+});
+
+
+
+app.get('/refreshToken', function(req, res) {
     //load access token into session for use by xero client
     dynamo.getUser(req.session.userPhoneNumber).then(
       function(data) {
         console.log("got user from DB: ", data.Item);
-        console.log("Xero AccessToken expires at: ", data.Item.xeroAccessToken.oauth_expires_at);
         
-        
-        //set the DB AccessToken on the Xero client???
+        //set the DB AccessToken on the Xero client
         const xero2 = new XeroClient(config, data.Item.xeroAccessToken);
-        
-        //TODO
-        //check if expired!! 
-        //if yes -> Refresh
-        
-        
-        //else try to use API
-        
-        
-        //try to use xero
+       
         (async () => {
-            // IF EXPIRED -> refresh token and make new xero client with it
-            // const newAccessToken = await xero2.oauth1Client.refreshAccessToken();
-            // console.log("Got new access token: ", newAccessToken);
-            // const xero3 = new XeroClient(config, newAccessToken);
+            //assume access token is expired
+            //exchange it for a new one
+            const newAccessToken = await xero2.oauth1Client.refreshAccessToken();
+            console.log("Got new access token: ", newAccessToken);
             
-            const result = await xero2.invoices.get();
+            //save new access token in Session
+            req.session.token = newAccessToken;
+            
+            //save new access token in DB
+            dynamo.updateUserXeroAccessToken(req.session.userPhoneNumber, newAccessToken).then(
+              function(data) {
+                console.log("Succesfully updated item: ", data.Item);
+              }
+            ).catch(function(error) {
+                console.log(error);
+            });
+            
+            //test using it with xero
+            const xero3 = new XeroClient(config, newAccessToken);
+            
+            //set session xero client
+            req.session.xero = xero3;
+            
+            const result = await req.session.xero.invoices.get();
             console.log('Number of invoices:', result.Invoices.length);
+            res.redirect('/settings');
         })();
-        
-        res.redirect('/settings');
       }
     ).catch(function(error) {
         console.log(error);
         res.redirect('/');
     });
 });
+
+
 
 //
 //MY HELPER FUNCTIONS
