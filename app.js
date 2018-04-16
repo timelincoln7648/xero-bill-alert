@@ -3,9 +3,6 @@ const XeroClient = require('xero-node').AccountingAPIClient;
 const config = require('./config.json');
 const fs = require('fs');
 
-
-
-
 var crypto = require("crypto");
 var schedule = require('node-schedule');
 
@@ -19,8 +16,6 @@ var express = require("express"),
     dynamo = require('./dynamo'),
     twilio = require('./twilio');
     
-
-
 
 // Set the region 
 AWS.config.update({region: 'us-east-2'});
@@ -93,7 +88,7 @@ app.get('/settings', function(req, res){
     // use to block access to settings to logged in only
     if (req.session.userLoggedIn) {
         if (req.session.token == undefined) {
-            console.log("session token undefined, redircting to refreshAccessToken route...");
+            console.log("session token undefined, redirecting to refreshXeroAccessToken route...");
             res.redirect('/refreshXeroAccessToken');
         } else {
             res.render('settings', {connectionStatus: connectionStatus});
@@ -153,9 +148,22 @@ app.get('/accessXero', function(req, res) {
         req.session.token = accessToken;
         console.log(req.session);
         
-        //store xero client in session
-        //test using it with xero
-        const newXero = new XeroClient(config, accessToken);
+        //check if user has setup xero before
+        //if user has org name they're good else download details
+        dynamo.getUser(req.session.userPhoneNumber).then(
+          function(data) {
+            if (data.Item.orgName == undefined) {
+                console.log("org name undefined, downloading details...");
+                downloadNewUserDetails(req, res);
+            } else {
+                console.log("org name NOT undefined, NOT downloading details...");
+            }
+          }
+        ).catch(function(error) {
+            console.log(error);
+        });
+        
+        
     
         //store access token in database
         dynamo.updateUserXeroAccessToken(req.session.userPhoneNumber, accessToken).then(
@@ -365,7 +373,7 @@ app.post('/checkVerificationCode', function(req, res){
             console.log("Success logging in!");
             
             //TODO
-            //redirct to new route to load DB details into user session then redirect to settings
+            //redirect to new route to load DB details into user session then redirect to settings
             
             res.redirect("/settings");
         } else {
@@ -396,17 +404,63 @@ app.post('/checkVerificationCode', function(req, res){
         //redirect to getting started to try again
         res.redirect('/');
     }
-
 });
 
 app.get('/testFeature', function(req, res){
-    exampleUseXero(req, res);
+    
 });
 
 
 //
 //MY HELPER FUNCTIONS
 //
+
+function downloadNewUserDetails(req, res) {
+    //assume fresh access token - no need to check expiry
+    
+    //set filter to ACCPAY (Bills)
+    var args = {where: `Type=="ACCPAY"`};
+    
+    if (connectedToXero(req)) {
+        var newXero = new XeroClient(config, req.session.token);
+        
+        (async () => {
+            
+            //save org name to db
+            const orgResult = await newXero.organisation.get();
+            let orgName = orgResult.Organisations[0].Name;
+            updateUserOrgName(req, res, req.session.userPhoneNumber, orgName);
+            
+            //download ACCPAY invoices only
+            const result = await newXero.invoices.get(args);
+            console.log('\nNumber of invoices:', result.Invoices.length);
+            
+            var scrubbedInvoices = [];
+            
+            for (var i=0; i<result.Invoices.length; i++){
+                //make new map of invoice details
+                var newInvoice = {};
+                newInvoice.InvoiceID = result.Invoices[i].InvoiceID;
+                newInvoice.AmountDue = result.Invoices[i].AmountDue;
+                newInvoice.AmountPaid = result.Invoices[i].AmountPaid;
+                newInvoice.DueDateString = result.Invoices[i].DueDateString;
+                scrubbedInvoices.push(newInvoice);
+            }
+            
+            //save them to DB
+            dynamo.updateUserInvoices(req.session.userPhoneNumber, scrubbedInvoices);
+        })();
+    } else {
+        console.log("Error: user not connected to Xero");
+    }
+}
+
+
+
+
+///////
+///////////////
+///////
 
 function exampleUseXero(req, res) {
     (async () => {
@@ -446,17 +500,13 @@ function exampleUseXero(req, res) {
 
 
 
-function updateUserOrgName (req, res,phoneNumber, orgName) {
-    //try adding org name to user in dynamo
+function updateUserOrgName (req, res, phoneNumber, orgName) {
     dynamo.updateUserOrgName(phoneNumber, orgName).then(
       function(data) {
         console.log("Succesfully updated item: ", data.Item);
-        
-        res.redirect('/settings');
       }
     ).catch(function(error) {
         console.log(error);
-        res.redirect('/');
     });
 }
 

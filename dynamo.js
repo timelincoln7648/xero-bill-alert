@@ -77,6 +77,25 @@ module.exports = {
         
         //return promise object for async and success/failure handling in main app.js
       return docClient.update(params).promise();
+    },
+    
+    updateUserInvoices: function (phoneNumber, invoices) {
+      var docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2012-08-10'});
+      var params = {
+         TableName: "users",
+         Key: 
+            {
+                'phoneNumber': phoneNumber
+            },
+        UpdateExpression: "set invoices = :invoices",
+            ExpressionAttributeValues: {
+                ":invoices": invoices
+            },
+            ReturnValues:"UPDATED_NEW"
+        };
+        
+        //return promise object for async and success/failure handling in main app.js
+      return docClient.update(params).promise();
     }
     
   
