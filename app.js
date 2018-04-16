@@ -49,7 +49,7 @@ app.use(bodyParser.urlencoded({extended: true}));
 
 const xeroWebhookKey = 'YNGJ+to1N5VqQbpUo07eeAyDP/z5VfrIwSMWnKgXcHlCuezpXR4D6poB0gSfPgkix6Xpw57bC7FpDgjojWjYnQ==';
 let xeroWebhookBodyParser = bodyParser.raw({ type: 'application/json' })
-let xero = new XeroClient(config);
+var xero = new XeroClient(config);
 
 // SCHEDULED JOBS
 // Scheduled at 8:30 am each morning
@@ -66,8 +66,49 @@ app.get('/', function(req, res) {
     res.render('home');
 });
 
-//XERO
+app.get('/login', function(req, res) {
+   res.render('login'); 
+});
 
+app.get('/logout', function(req, res) {
+    //reset session
+    req.session.destroy();
+    res.redirect('/');
+});
+
+app.get('/getStarted', function(req, res) {
+    
+       //TODO
+        //if redirected here from failed phone verify - render with note that verify failed
+        //on page show message that verify failed and to try again
+        
+    res.render('getStarted');
+    
+});
+
+app.get('/settings', function(req, res){
+    var connectionStatus = connectedToXero(req);
+    console.log("connectionStatus: ", connectionStatus);
+    
+    // use to block access to settings to logged in only
+    if (req.session.userLoggedIn) {
+        if (req.session.token == undefined) {
+            console.log("session token undefined, redircting to refreshAccessToken route...");
+            res.redirect('/refreshXeroAccessToken');
+        } else {
+            res.render('settings', {connectionStatus: connectionStatus});
+        }
+    } else {
+        //if you're not logged in you can't get to settings
+        res.redirect('/');
+    }
+});
+
+//
+//XERO
+//
+
+//Xero OAuth flow
 app.get('/connectXero', function(req, res){
     
     (async () => {
@@ -108,9 +149,13 @@ app.get('/accessXero', function(req, res) {
         const accessToken = await xero.oauth1Client.swapRequestTokenforAccessToken(savedRequestToken, oauth_verifier);
         console.log('Received Access Token:\n', accessToken);
         
-        // You should now store the access token securely for the user.
+        //store access token in session
         req.session.token = accessToken;
         console.log(req.session);
+        
+        //store xero client in session
+        //test using it with xero
+        const newXero = new XeroClient(config, accessToken);
     
         //store access token in database
         dynamo.updateUserXeroAccessToken(req.session.userPhoneNumber, accessToken).then(
@@ -127,31 +172,73 @@ app.get('/accessXero', function(req, res) {
     
 });
 
+//user disconnect xero
 app.get('/disconnectXero', function(req, res){
-   if (req.session.token) {
-       //delete token
-       req.session.token = "";
-   } else {
-       console.log("no token to delete...");
-   }
-   res.redirect('/settings');
-});
-
-app.get('/settings', function(req, res){
-    var connectionStatus = connectedToXero(req);
-    console.log("connectionStatus: ", connectionStatus);
-    
-// use to block access to settings to logged in only
-    if (req.session.userLoggedIn) {
-        res.render('settings',
-            {connectionStatus: connectionStatus}
-        );
-    } else {
-        //if you're not logged in you can't get to settings
+   //delete token from session
+   req.session.token = "empty";
+   
+   //delete token from DB
+    dynamo.updateUserXeroAccessToken(req.session.userPhoneNumber, req.session.token).then(
+      function(data) {
+        console.log("Succesfully updated item: ", data.Item);
+        res.redirect('/settings');
+      }
+    ).catch(function(error) {
+        console.log(error);
         res.redirect('/');
-    }
+    });
 });
 
+//refresh access token to use API
+app.get('/refreshXeroAccessToken', function(req, res) {
+    //load access token into session for use by xero client
+    dynamo.getUser(req.session.userPhoneNumber).then(
+      function(data) {
+        console.log("got user from DB: ", data.Item);
+        
+        if (data.Item.xeroAccessToken == "empty" || data.Item.xeroAccessToken == undefined) {
+            //user has deleted Xero token from Bill Alert app side or never authed before //redirect to settings
+            console.log("user has deleted Xero token from Bill Alert app side or never authed before\nredirecting to settings");
+            req.session.token = 'empty';
+            res.redirect('/settings');
+        } else {
+            //set the DB AccessToken on the Xero client
+            const xero2 = new XeroClient(config, data.Item.xeroAccessToken);
+           
+            (async () => {
+                //assume access token is expired
+                //exchange it for a new one
+                const newAccessToken = await xero2.oauth1Client.refreshAccessToken();
+                console.log("Got new access token: ", newAccessToken);
+                
+                //save new access token in Session
+                req.session.token = newAccessToken;
+                
+                //save new access token in DB
+                dynamo.updateUserXeroAccessToken(req.session.userPhoneNumber, newAccessToken).then(
+                  function(data) {
+                    console.log("Succesfully updated item: ", data.Item);
+                  }
+                ).catch(function(error) {
+                    console.log(error);
+                });
+                
+                //test using it with xero
+                const xero3 = new XeroClient(config, newAccessToken);
+                
+                const result = await xero3.invoices.get();
+                console.log('Number of invoices:', result.Invoices.length);
+                res.redirect('/settings');
+            })();
+          }
+        }
+    ).catch(function(error) {
+        console.log(error);
+        res.redirect('/');
+    });
+});
+
+//xero webhooks
 app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
 
     console.log("Req: Xero Signature:", req.headers['x-xero-signature'])
@@ -197,22 +284,11 @@ app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
     res.send()
 })
 
-app.get('/getStarted', function(req, res) {
-    
-       //TODO
-        //if redirected here from failed phone verify - render with note that verify failed
-        //on page show message that verify failed and to try again
-        
-    res.render('getStarted');
-    
-});
-
 //PHONE VERIFICATION
 
 app.get('/enterVerificationCode', function(req, res) {
    res.render('enterVerificationCode'); 
 });
-
 
 app.post('/verifyPhoneNumber', function(req, res) {
     var theInputString = req.body.inputPhoneNumber;
@@ -287,6 +363,10 @@ app.post('/checkVerificationCode', function(req, res){
             req.session.userPhoneNumber = req.session.latestInputPhoneNumber;
             
             console.log("Success logging in!");
+            
+            //TODO
+            //redirct to new route to load DB details into user session then redirect to settings
+            
             res.redirect("/settings");
         } else {
             //this is a new user registration
@@ -319,75 +399,51 @@ app.post('/checkVerificationCode', function(req, res){
 
 });
 
-
-app.get('/login', function(req, res) {
-   res.render('login'); 
-});
-
-app.get('/logout', function(req, res) {
-    //reset session
-    req.session.destroy();
-    res.redirect('/');
-});
-
-
-
 app.get('/testFeature', function(req, res){
-    //YOU'RE TRYING TO USE ACCESS TOKEN RETRIEVED FROM DB
-    res.redirect('/refreshToken');
+    exampleUseXero(req, res);
 });
-
-
-
-app.get('/refreshToken', function(req, res) {
-    //load access token into session for use by xero client
-    dynamo.getUser(req.session.userPhoneNumber).then(
-      function(data) {
-        console.log("got user from DB: ", data.Item);
-        
-        //set the DB AccessToken on the Xero client
-        const xero2 = new XeroClient(config, data.Item.xeroAccessToken);
-       
-        (async () => {
-            //assume access token is expired
-            //exchange it for a new one
-            const newAccessToken = await xero2.oauth1Client.refreshAccessToken();
-            console.log("Got new access token: ", newAccessToken);
-            
-            //save new access token in Session
-            req.session.token = newAccessToken;
-            
-            //save new access token in DB
-            dynamo.updateUserXeroAccessToken(req.session.userPhoneNumber, newAccessToken).then(
-              function(data) {
-                console.log("Succesfully updated item: ", data.Item);
-              }
-            ).catch(function(error) {
-                console.log(error);
-            });
-            
-            //test using it with xero
-            const xero3 = new XeroClient(config, newAccessToken);
-            
-            //set session xero client
-            req.session.xero = xero3;
-            
-            const result = await req.session.xero.invoices.get();
-            console.log('Number of invoices:', result.Invoices.length);
-            res.redirect('/settings');
-        })();
-      }
-    ).catch(function(error) {
-        console.log(error);
-        res.redirect('/');
-    });
-});
-
 
 
 //
 //MY HELPER FUNCTIONS
 //
+
+function exampleUseXero(req, res) {
+    (async () => {
+        if (req.session.token) {
+            var newXero = new XeroClient(config, req.session.token);
+            
+            //check expired or not
+        	if((new Date) - req.session.token.oauth_expires_at > 60*30*1000){
+        	    console.log("token expired. getting new token... ");
+        		let newToken = await newXero.oauth1Client.refreshAccessToken();
+    		    
+    		    //store the new access token
+    		    //save new access token in Session
+                req.session.token = newToken;
+                
+                //save new access token in DB
+                dynamo.updateUserXeroAccessToken(req.session.userPhoneNumber, newToken).then(
+                  function(data) {
+                    console.log("Succesfully updated item: ", data.Item);
+                  }
+                ).catch(function(error) {
+                    console.log(error);
+                });
+    		    
+    		    //make new xero client
+    		    newXero = new XeroClient(config, newToken);
+        	} 
+	    //use xero
+        const result = await newXero.invoices.get();
+        console.log('Number of invoices:', result.Invoices.length);
+        	
+        } else {
+            console.log("Error: no Xero token found in the session object.");
+        }
+    })();
+}
+
 
 
 function updateUserOrgName (req, res,phoneNumber, orgName) {
@@ -419,8 +475,11 @@ function getUser(req, res) {
     });
 }
 
+
+
+
 function connectedToXero(req){
-    if (req.session.token) {
+    if (req.session.token != "empty" && req.session.token != undefined) {
         return true;
     } else {
         return false;
@@ -430,9 +489,6 @@ function connectedToXero(req){
 function returnNumbersOnly(theOriginalString) {
     return theOriginalString.replace(/\D/g,'');
 }
-
-
-
 
 
 

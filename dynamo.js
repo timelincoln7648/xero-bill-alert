@@ -42,6 +42,7 @@ module.exports = {
     
     updateUserXeroAccessToken: function (phoneNumber, xeroAccessToken) {
         var docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2012-08-10'});
+        
         var params = {
          TableName: "users",
          Key: 
