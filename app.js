@@ -83,7 +83,7 @@ app.get('/getStarted', function(req, res) {
 
 app.get('/settings', function(req, res){
     var connectionStatus = connectedToXero(req);
-    console.log("connectionStatus: ", connectionStatus);
+    var orgName = req.session.orgName;
     
     // use to block access to settings to logged in only
     if (req.session.userLoggedIn) {
@@ -91,7 +91,7 @@ app.get('/settings', function(req, res){
             console.log("session token undefined, redirecting to refreshXeroAccessToken route...");
             res.redirect('/refreshXeroAccessToken');
         } else {
-            res.render('settings', {connectionStatus: connectionStatus});
+            res.render('settings', {connectionStatus: connectionStatus, orgName: orgName});
         }
     } else {
         //if you're not logged in you can't get to settings
@@ -148,7 +148,17 @@ app.get('/accessXero', function(req, res) {
         req.session.token = accessToken;
         console.log(req.session);
         
+        //make new Xero -> await get org name -> save to session
+        var newXero = new XeroClient(config, req.session.token);
+        
+        //save org name to session for display on settings page
+        const orgResult = await newXero.organisation.get();
+        let orgName = orgResult.Organisations[0].Name;
+        req.session.orgName = orgName;
+        
+        
         //check if user has setup xero before
+        //we use org name existing in DB as a sentinel for if user has been setup before
         //if user has org name they're good else download details
         dynamo.getUser(req.session.userPhoneNumber).then(
           function(data) {
@@ -156,7 +166,8 @@ app.get('/accessXero', function(req, res) {
                 console.log("org name undefined, downloading details...");
                 downloadNewUserDetails(req, res);
             } else {
-                console.log("org name NOT undefined, NOT downloading details...");
+                //don't need to download user details from Xero if you already have
+                console.log("org name NOT undefined, NOT downloading user Xero details...");
             }
           }
         ).catch(function(error) {
@@ -168,7 +179,7 @@ app.get('/accessXero', function(req, res) {
         //store access token in database
         dynamo.updateUserXeroAccessToken(req.session.userPhoneNumber, accessToken).then(
           function(data) {
-            console.log("Succesfully updated item: ", data.Item);
+            console.log("Succesfully saved accessToken to dynamo, redirecting to settings");
             res.redirect('/settings');
           }
         ).catch(function(error) {
@@ -225,7 +236,7 @@ app.get('/refreshXeroAccessToken', function(req, res) {
                 //save new access token in DB
                 dynamo.updateUserXeroAccessToken(req.session.userPhoneNumber, newAccessToken).then(
                   function(data) {
-                    console.log("Succesfully updated item: ", data.Item);
+                    console.log("Succesfully refreshed user XeroAccessToken");
                   }
                 ).catch(function(error) {
                     console.log(error);
@@ -234,8 +245,10 @@ app.get('/refreshXeroAccessToken', function(req, res) {
                 //test using it with xero
                 const xero3 = new XeroClient(config, newAccessToken);
                 
-                const result = await xero3.invoices.get();
-                console.log('Number of invoices:', result.Invoices.length);
+                //save org name to session
+                const orgResult = await xero3.organisation.get();
+                req.session.orgName = orgResult.Organisations[0].Name;
+                
                 res.redirect('/settings');
             })();
           }
@@ -418,22 +431,28 @@ app.get('/testFeature', function(req, res){
 function downloadNewUserDetails(req, res) {
     //assume fresh access token - no need to check expiry
     
-    //set filter to ACCPAY (Bills)
-    var args = {where: `Type=="ACCPAY"`};
-    
     if (connectedToXero(req)) {
         var newXero = new XeroClient(config, req.session.token);
         
         (async () => {
+            var orgName = "";
+            
+            //check if you already have the org name from loading it on settings page ;)
+            if (req.session.orgName == undefined) {
+                const orgResult = await newXero.organisation.get();
+                orgName = orgResult.Organisations[0].Name;
+                req.session.orgName = orgName;
+            } else {
+                orgName = req.session.orgName;
+            }
             
             //save org name to db
-            const orgResult = await newXero.organisation.get();
-            let orgName = orgResult.Organisations[0].Name;
             updateUserOrgName(req, res, req.session.userPhoneNumber, orgName);
             
-            //download ACCPAY invoices only
+            //download ACCPAY invoices only (Bills)
+            var args = {where: `Type=="ACCPAY"`};
             const result = await newXero.invoices.get(args);
-            console.log('\nNumber of invoices:', result.Invoices.length);
+            console.log('\nNumber of bills:', result.Invoices.length);
             
             var scrubbedInvoices = [];
             
