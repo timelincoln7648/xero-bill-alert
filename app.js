@@ -447,7 +447,7 @@ function downloadNewUserDetails(req, res) {
             }
             
             //save org name to db
-            updateUserOrgName(req, res, req.session.userPhoneNumber, orgName);
+            dynamo.updateUserOrgName(req.session.userPhoneNumber, orgName);
             
             //download ACCPAY invoices only (Bills)
             var args = {where: `Type=="ACCPAY"`};
@@ -475,75 +475,9 @@ function downloadNewUserDetails(req, res) {
 }
 
 
-
-
 ///////
 ///////////////
 ///////
-
-function exampleUseXero(req, res) {
-    (async () => {
-        if (req.session.token) {
-            var newXero = new XeroClient(config, req.session.token);
-            
-            //check expired or not
-        	if((new Date) - req.session.token.oauth_expires_at > 60*30*1000){
-        	    console.log("token expired. getting new token... ");
-        		let newToken = await newXero.oauth1Client.refreshAccessToken();
-    		    
-    		    //store the new access token
-    		    //save new access token in Session
-                req.session.token = newToken;
-                
-                //save new access token in DB
-                dynamo.updateUserXeroAccessToken(req.session.userPhoneNumber, newToken).then(
-                  function(data) {
-                    console.log("Succesfully updated item: ", data.Item);
-                  }
-                ).catch(function(error) {
-                    console.log(error);
-                });
-    		    
-    		    //make new xero client
-    		    newXero = new XeroClient(config, newToken);
-        	} 
-	    //use xero
-        const result = await newXero.invoices.get();
-        console.log('Number of invoices:', result.Invoices.length);
-        	
-        } else {
-            console.log("Error: no Xero token found in the session object.");
-        }
-    })();
-}
-
-
-
-function updateUserOrgName (req, res, phoneNumber, orgName) {
-    dynamo.updateUserOrgName(phoneNumber, orgName).then(
-      function(data) {
-        console.log("Succesfully updated item: ", data.Item);
-      }
-    ).catch(function(error) {
-        console.log(error);
-    });
-}
-
-function getUser(req, res) {
-    // handle promise's fulfilled/rejected states
-    dynamo.getUser('1111111116').then(
-      function(data) {
-        console.log("User phone number: ", data.Item);
-        //TODO
-        //USE THIS BLOCK TO DO SOMETHING NEXT WITH USER
-        res.redirect('/');
-      }
-    ).catch(function(error) {
-        console.log(error);
-        res.redirect('/');
-    });
-}
-
 
 
 
@@ -560,6 +494,9 @@ function returnNumbersOnly(theOriginalString) {
 }
 
 
+///////
+///////////////
+///////
 
 //start server
 app.listen(process.env.PORT, process.env.IP, function(){
