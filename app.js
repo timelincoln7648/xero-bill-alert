@@ -3,18 +3,14 @@ const XeroClient = require('xero-node').AccountingAPIClient;
 const config = require('./config.json');
 const fs = require('fs');
 
-var crypto = require("crypto");
-var schedule = require('node-schedule');
-
 var express = require("express"),
     session = require('express-session'),
-    // passport = require('passport'),
-    // LocalStrategy = require('passport-local'),
     bodyParser = require("body-parser"),
-    // mongoose = require("mongoose"),
     AWS = require('aws-sdk'),
     dynamo = require('./dynamo'),
-    twilio = require('./twilio');
+    twilio = require('./twilio'),
+    dailyJob = require('./scheduledJob'),
+    crypto = require("crypto");
     
 
 // Set the region 
@@ -46,13 +42,8 @@ const xeroWebhookKey = 'YNGJ+to1N5VqQbpUo07eeAyDP/z5VfrIwSMWnKgXcHlCuezpXR4D6poB
 let xeroWebhookBodyParser = bodyParser.raw({ type: 'application/json' })
 var xero = new XeroClient(config);
 
-// SCHEDULED JOBS
-// Scheduled at 8:30 am each morning
-var dailyJob = schedule.scheduleJob('30 8 * * *', function() {
-    console.log("Scheduled Daily Job Fired")
-    //TODO connect to DB
 
-})
+
 
 //ROUTES
 
@@ -474,13 +465,6 @@ function downloadNewUserDetails(req, res) {
     }
 }
 
-
-///////
-///////////////
-///////
-
-
-
 function connectedToXero(req){
     if (req.session.token != "empty" && req.session.token != undefined) {
         return true;
@@ -493,6 +477,15 @@ function returnNumbersOnly(theOriginalString) {
     return theOriginalString.replace(/\D/g,'');
 }
 
+
+///////
+///////////////
+///////
+
+// SCHEDULED JOBS
+//this runs for every user in the database!
+
+// dailyJob.start();
 
 ///////
 ///////////////

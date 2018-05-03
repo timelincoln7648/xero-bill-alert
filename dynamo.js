@@ -5,6 +5,8 @@ var AWS = require('aws-sdk');
 // Set the region 
 AWS.config.update({region: 'us-east-2'});
 
+//create the docClient
+var docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2012-08-10'});
 
 //public functions
 
@@ -12,7 +14,6 @@ module.exports = {
   
   
     getUser: function (phoneNumber) {
-      var docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2012-08-10'});
       var params = {
          TableName: "users",
          Key: 
@@ -24,11 +25,16 @@ module.exports = {
       return docClient.get(params).promise();
     },
     
+    getAllXeroConnectedUsers: function () {
+        var params = {
+            TableName: "users",
+            FilterExpression: "attribute_exists(orgName)"
+        };
+        
+        return docClient.scan(params).promise();
+    },
+    
     createUser: function (phoneNumber) {
-        // Create DynamoDB document client
-        var docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2012-08-10'});
-       
-       
         //add attributes to item
         var params = {
           TableName: 'users',
@@ -41,7 +47,6 @@ module.exports = {
     },
     
     updateUserXeroAccessToken: function (phoneNumber, xeroAccessToken) {
-        var docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2012-08-10'});
         
         var params = {
          TableName: "users",
@@ -61,7 +66,6 @@ module.exports = {
     },
     
     updateUserOrgName: function (phoneNumber, orgName) {
-      var docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2012-08-10'});
       var params = {
          TableName: "users",
          Key: 
@@ -80,7 +84,6 @@ module.exports = {
     },
     
     updateUserInvoices: function (phoneNumber, invoices) {
-      var docClient = new AWS.DynamoDB.DocumentClient({apiVersion: '2012-08-10'});
       var params = {
          TableName: "users",
          Key: 
