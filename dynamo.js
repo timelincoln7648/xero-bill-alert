@@ -65,16 +65,17 @@ module.exports = {
         return docClient.update(params).promise();
     },
     
-    updateUserOrgName: function (phoneNumber, orgName) {
+    updateUserOrgName: function (phoneNumber, orgName, orgShortCode) {
       var params = {
          TableName: "users",
          Key: 
             {
                 'phoneNumber': phoneNumber
             },
-        UpdateExpression: "set orgName = :orgName",
+        UpdateExpression: "set orgName = :orgName, orgShortCode = :orgShortCode",
             ExpressionAttributeValues: {
-                ":orgName": orgName
+                ":orgName": orgName,
+                ":orgShortCode": orgShortCode
             },
             ReturnValues:"UPDATED_NEW"
         };

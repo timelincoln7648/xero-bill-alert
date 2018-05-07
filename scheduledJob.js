@@ -42,7 +42,7 @@ module.exports = {
                                             console.log("Amount Due: ", invoice.AmountDue);
                                             
                                             //send text
-                                            var text = makeTextMessageString(user.Item.orgName, invoice.InvoiceID, invoice.AmountDue, dueDate);
+                                            var text = makeTextMessageString(user.Item.orgName, user.Item.orgShortCode, invoice.InvoiceID, invoice.AmountDue, dueDate);
                                             console.log(text);
                                             twilio.sendText(item.phoneNumber, text);
                                             
@@ -83,9 +83,8 @@ module.exports = {
 
 };
 
-function makeTextMessageString(orgName, invoiceID, amount, dueDate) {
-    var shortCode = "!f1qT8";
-    var deepLink = "https://go.xero.com/organisationlogin/default.aspx?shortcode="+shortCode+"&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID="+invoiceID;
+function makeTextMessageString(orgName, orgShortCode, invoiceID, amount, dueDate) {
+    var deepLink = "https://go.xero.com/organisationlogin/default.aspx?shortcode="+orgShortCode+"&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID="+invoiceID;
     var textString = orgName+" has a bill for "+currency.format(amount, { code: 'USD' })+", due on "+dateFormat(dueDate, "longDate")+".";
     textString += "\n\nClick below to view and pay this bill in Xero. \n";
     textString += deepLink;
