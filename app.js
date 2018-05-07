@@ -426,26 +426,15 @@ function downloadNewUserDetails(req, res) {
         var newXero = new XeroClient(config, req.session.token);
         
         (async () => {
-            var orgName = "";
-            var orgShortCode ="";
-            
-            //check if you already have the org name from loading it on settings page ;)
-            // if (req.session.orgName == undefined) {
-            //     const orgResult = await newXero.organisation.get();
-            //     orgName = orgResult.Organisations[0].Name;
-            //     orgShortCode = orgResult.Organisations[0].ShortCode;
-            //     req.session.orgName = orgName;
-            // } else {
-            //     orgName = req.session.orgName;
-            // }
-            
+         
             const orgResult = await newXero.organisation.get();
-            orgName = orgResult.Organisations[0].Name;
-            orgShortCode = orgResult.Organisations[0].ShortCode;
+            const   orgName = orgResult.Organisations[0].Name,
+                    orgShortCode = orgResult.Organisations[0].ShortCode,
+                    orgID = orgResult.Organisations[0].OrganisationID;
             req.session.orgName = orgName;
             
-            //save org name to db
-            dynamo.updateUserOrgName(req.session.userPhoneNumber, orgName, orgShortCode);
+            //save org details to DB
+            dynamo.updateUserOrgDetails(req.session.userPhoneNumber, orgName, orgShortCode, orgID);
             
             //download ACCPAY invoices only (Bills)
             var args = {where: `Type=="ACCPAY"`};
@@ -489,10 +478,10 @@ function returnNumbersOnly(theOriginalString) {
 ///////////////
 ///////
 
-// SCHEDULED JOBS
+// SCHEDULED JOB
 //this runs for every user in the database!
 
-dailyJob.start();
+// dailyJob.start();
 
 ///////
 ///////////////
