@@ -4,7 +4,8 @@
 }
 
 .container.main {
-  margin-top: 4.0em;
+  margin-top: 2.0em;
+  margin-left: 2em;
 }
 
 .DataTitle {
@@ -16,8 +17,14 @@
   text-align: center;
 }
 
+#myField {
+  width: 250px;
+  
+}
+
 #mainBox {
   text-align: center;
+  margin-top: 2.0em;
 }
 
 #smallBox {

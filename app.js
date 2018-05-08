@@ -12,6 +12,16 @@ var express = require("express"),
     dailyJob = require('./scheduledJob'),
     crypto = require("crypto");
     
+//jquery
+// require("jsdom").env("", function(err, window) {
+//     if (err) {
+//         console.error(err);
+//         return;
+//     }
+ 
+//     var $ = require("jquery")(window);
+// });
+    
 
 // Set the region 
 AWS.config.update({region: 'us-east-2'});
@@ -33,7 +43,6 @@ app.use(function(req, res, next) {
 
 
 //general setup
-// mongoose.connect("mongodb://localhost/bill_alert");
 app.set("view engine", "ejs");
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({extended: true}));
@@ -304,15 +313,25 @@ app.get('/enterVerificationCode', function(req, res) {
 
 app.post('/verifyPhoneNumber', function(req, res) {
     var theInputString = req.body.inputPhoneNumber;
+    var countryCode = "1";  //default to US country code just in case
+    
+    if (req.body.countryCode !== undefined) {
+        countryCode = req.body.countryCode;
+    } else {
+        console.log("req.body.countryCode undefined")
+    }
+    
     var userFound = false;
     
     //clean the input string
     var userInputPhoneNumber = returnNumbersOnly(theInputString);
     console.log("Cleaned string: "+userInputPhoneNumber);
-    if (userInputPhoneNumber.length !== 10) {
-        console.log("Phone Number length wrong!");
-        return res.redirect('/');
-    }
+    // if (userInputPhoneNumber.length !== 10) {
+    //     console.log("Phone Number length wrong!");
+    //     return res.redirect('/');
+    // }
+    var totalPhoneNumber = "+"+countryCode+userInputPhoneNumber;
+    console.log("Total phone number: ", totalPhoneNumber);
     
     (async () => {
     
@@ -350,7 +369,7 @@ app.post('/verifyPhoneNumber', function(req, res) {
         console.log("session generatedRandomCode is: "+req.session.generatedRandomCode);
     
         //send text with code
-        twilio.sendText(userInputPhoneNumber, "Your verification code is: "+req.session.generatedRandomCode);
+        twilio.sendText(totalPhoneNumber, "Regan! Your verification code is: "+req.session.generatedRandomCode);
         
         //redirect to code entry page //send code you generated -> so you can compare entry of code on following page
         res.redirect('/enterVerificationCode');
