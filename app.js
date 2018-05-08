@@ -326,10 +326,7 @@ app.post('/verifyPhoneNumber', function(req, res) {
     //clean the input string
     var userInputPhoneNumber = returnNumbersOnly(theInputString);
     console.log("Cleaned string: "+userInputPhoneNumber);
-    // if (userInputPhoneNumber.length !== 10) {
-    //     console.log("Phone Number length wrong!");
-    //     return res.redirect('/');
-    // }
+    
     var totalPhoneNumber = "+"+countryCode+userInputPhoneNumber;
     console.log("Total phone number: ", totalPhoneNumber);
     
@@ -337,7 +334,8 @@ app.post('/verifyPhoneNumber', function(req, res) {
     
         //if user is clicking through from login try to find them in database and if you can't redirect to getStarted
         if (req.body.isLoginAttempt) {
-            let response = await dynamo.getUser(userInputPhoneNumber).then(
+            console.log("caught isLoginAttempt!");
+            let response = await dynamo.getUser(totalPhoneNumber).then(
               function(data) {
                 if (data.Item == undefined) {
                     //if you can't find them error and redirect to getting started
@@ -358,18 +356,17 @@ app.post('/verifyPhoneNumber', function(req, res) {
         
         // return out of route scope if someone tries to login but they can't be found in DB
         if (req.body.isLoginAttempt && !userFound) {
-            console.log("about to try to return");
             return;
         }
        
         //generate a 4 digit verification code
         const generatedRandomCode = Math.floor(Math.random() * (9999 - 1000) + 1000);
         req.session.generatedRandomCode = generatedRandomCode;
-        req.session.latestInputPhoneNumber = userInputPhoneNumber;
+        req.session.latestInputPhoneNumber = totalPhoneNumber;
         console.log("session generatedRandomCode is: "+req.session.generatedRandomCode);
     
         //send text with code
-        twilio.sendText(totalPhoneNumber, "Regan! Your verification code is: "+req.session.generatedRandomCode);
+        twilio.sendText(totalPhoneNumber, "Your verification code is: "+req.session.generatedRandomCode);
         
         //redirect to code entry page //send code you generated -> so you can compare entry of code on following page
         res.redirect('/enterVerificationCode');
