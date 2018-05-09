@@ -47,6 +47,7 @@ app.set("view engine", "ejs");
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({extended: true}));
 
+//Xero Webhooks
 const xeroWebhookKey = 'YNGJ+to1N5VqQbpUo07eeAyDP/z5VfrIwSMWnKgXcHlCuezpXR4D6poB0gSfPgkix6Xpw57bC7FpDgjojWjYnQ==';
 let xeroWebhookBodyParser = bodyParser.raw({ type: 'application/json' })
 var xero = new XeroClient(config);
