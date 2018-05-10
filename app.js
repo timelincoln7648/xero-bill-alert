@@ -262,6 +262,8 @@ app.get('/refreshXeroAccessToken', function(req, res) {
 
 //xero webhooks
 app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
+    
+    console.log("\n\nIn webhook post route!!\n\n");
 
     console.log("Req: Xero Signature:", req.headers['x-xero-signature'])
     // Generate Signature
@@ -271,24 +273,32 @@ app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
 
     // ITR Check
     if (req.headers['x-xero-signature'] == xeroWebhookSignature) {
+        
+        console.log("\n\nIn ITR check !!\n\n");
+        
         // ITR has succeeded, lets process the webhook
         // Parse body as a json object
         var jsonBody = JSON.parse(req.body.toString())
 
         jsonBody['events'].forEach(function(event) {
             if (event['eventCategory'] == "INVOICE") {
+                
+                console.log("\n\ngot webhook for invoice event!");
+                console.log("event details: ", event);
 
                 // TODO retrieve correct access token from DB
                 // use event['tenantId']
+                
+                //make new xero to get invoices for that tenant and save to DB
 
-                xero.invoices.get({ InvoiceID: event['resourceId'] })
-                    .then(async function(invoice) {
-                        console.log(invoice.id)
-                        // TODO Enter invoice into DB
-                    }).catch(err => {
-                        // handle error
-                        console.log(err);
-                    });;
+                // xero.invoices.get({ InvoiceID: event['resourceId'] })
+                //     .then(async function(invoice) {
+                //         console.log(invoice.id)
+                //         // TODO Enter invoice into DB
+                //     }).catch(err => {
+                //         // handle error
+                //         console.log(err);
+                //     });;
 
             }
         })
