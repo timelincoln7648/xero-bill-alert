@@ -12,15 +12,7 @@ var express = require("express"),
     dailyJob = require('./scheduledJob'),
     crypto = require("crypto");
     
-//jquery
-// require("jsdom").env("", function(err, window) {
-//     if (err) {
-//         console.error(err);
-//         return;
-//     }
- 
-//     var $ = require("jquery")(window);
-// });
+
     
 
 // Set the region 
@@ -260,61 +252,7 @@ app.get('/refreshXeroAccessToken', function(req, res) {
     });
 });
 
-//xero webhooks
-app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
-    
-    console.log("\n\nIn webhook post route!!\n\n");
 
-    console.log("Req: Xero Signature:", req.headers['x-xero-signature'])
-    // Generate Signature
-    var xeroWebhookSignature = crypto.createHmac("sha256", xeroWebhookKey).update(req.body.toString()).digest("base64");
-    
-    console.log("Res: Xero Signature:", xeroWebhookSignature)
-
-    // ITR Check
-    if (req.headers['x-xero-signature'] == xeroWebhookSignature) {
-        
-        console.log("\n\nIn ITR check !!\n\n");
-        
-        // ITR has succeeded, lets process the webhook
-        // Parse body as a json object
-        var jsonBody = JSON.parse(req.body.toString())
-
-        jsonBody['events'].forEach(function(event) {
-            if (event['eventCategory'] == "INVOICE") {
-                
-                console.log("\n\ngot webhook for invoice event!");
-                console.log("event details: ", event);
-
-                // TODO retrieve correct access token from DB
-                // use event['tenantId']
-                
-                //make new xero to get invoices for that tenant and save to DB
-
-                // xero.invoices.get({ InvoiceID: event['resourceId'] })
-                //     .then(async function(invoice) {
-                //         console.log(invoice.id)
-                //         // TODO Enter invoice into DB
-                //     }).catch(err => {
-                //         // handle error
-                //         console.log(err);
-                //     });;
-
-            }
-        })
-
-        res.statusCode = 200
-    } else {
-        // ITR Failed
-        console.log("ITR Check Failed, webhook not processed")
-        res.statusCode = 401
-    }
-
-    // a response with a session will be rejected by webhooks, so lets destroy the default session
-    req.session.destroy();
-
-    res.send()
-})
 
 //PHONE VERIFICATION
 
@@ -437,14 +375,125 @@ app.post('/checkVerificationCode', function(req, res){
     }
 });
 
-app.get('/testFeature', function(req, res){
+
+//xero webhooks
+app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
     
+
+    // console.log("Req: Xero Signature:", req.headers['x-xero-signature'])
+    // Generate Signature
+    var xeroWebhookSignature = crypto.createHmac("sha256", xeroWebhookKey).update(req.body.toString()).digest("base64");
+    
+    // console.log("Res: Xero Signature:", xeroWebhookSignature)
+
+    // ITR Check
+    if (req.headers['x-xero-signature'] == xeroWebhookSignature) {
+        
+        // ITR has succeeded, lets process the webhook
+        // Parse body as a json object
+        var jsonBody = JSON.parse(req.body.toString())
+
+        jsonBody['events'].forEach(function(event) {
+            if (event['eventCategory'] == "INVOICE") {
+                
+                let invoiceId = event.resourceId,
+                    eventType = event.eventType,
+                    orgId = event.tenantId;
+
+                (async () => {
+                
+                    //dynamo scan for user with given orgId
+                    let result = await dynamo.getUserForOrgId(orgId).then(
+                      function(data) {
+                        let item = data.Items[0];
+
+                        //get dynamo userDetails for that orgId
+                        let phoneNumber = item.phoneNumber;
+                        let orgName = item.orgName;
+                        let xeroAccessToken = item.xeroAccessToken;
+                        var invoices = item.invoices;
+
+                        //use Xero access token to refresh and get a valid, current access token
+                        
+                        const xero = new XeroClient(config, xeroAccessToken);
+                       
+                        (async () => {
+                            
+                            const newAccessToken = await xero.oauth1Client.refreshAccessToken();
+                            
+                            //save new access token in DB
+                            dynamo.updateUserXeroAccessToken(phoneNumber, newAccessToken).then(
+                              function(data) {
+                              }
+                            ).catch(function(error) {
+                                console.log(error);
+                            });
+                            
+                            //use valid access token with invoiceId to pull down details of invoice
+                            const xero2 = new XeroClient(config, newAccessToken);
+                            
+                            //filter for the specific invoiceID
+                            var args = {InvoiceID: invoiceId};
+                            let invoiceResult = await xero2.invoices.get(args);
+                            let invoice = invoiceResult.Invoices[0];
+
+                            //check if it's an unpaid bill, we only do stuff for unpaid bills
+                            if ((invoice.Type == 'ACCPAY') && (invoice.AmountDue > 0)) {
+                                var scrubbedInvoice = {};
+                                scrubbedInvoice.InvoiceID = invoice.InvoiceID;
+                                scrubbedInvoice.AmountDue = invoice.AmountDue;
+                                scrubbedInvoice.AmountPaid = invoice.AmountPaid;
+                                scrubbedInvoice.DueDateString = invoice.DueDateString;
+                                
+                                if (eventType == "UPDATE") {
+                                    const index = invoices.findIndex(invoice => invoice.InvoiceID === invoiceId);
+                                    //overwrite the invoice at the index where the ID's match
+                                    invoices[index] = scrubbedInvoice;
+
+                                } else if (eventType == "CREATE") {    
+                                    invoices.push(scrubbedInvoice);
+                                }
+                                //update dynamo
+                                dynamo.updateUserInvoices(phoneNumber, invoices).then(
+                                  function(data) {
+                                    console.log("Succesfully saved webhook event details to dynamo");
+                                  }
+                                ).catch(function(error) {
+                                    console.log("error saving webhook details to dynamo: ", error);
+                                });
+                            }
+                        })();
+                      }
+                    ).catch(function(error) {
+                        console.log("Error on getUserForOrgId: \n",error);
+                    });
+                })();
+            }
+        })
+
+        res.statusCode = 200
+    } else {
+        // ITR Failed
+        console.log("ITR Check Failed, webhook not processed")
+        res.statusCode = 401
+    }
+
+    // a response with a session will be rejected by webhooks, so lets destroy the default session
+    req.session.destroy();
+    res.send()
+})
+
+app.get('/testFeature', function(req, res){
+
+   
 });
 
 
 //
 //MY HELPER FUNCTIONS
 //
+
+
 
 function downloadNewUserDetails(req, res) {
     //assume fresh access token - no need to check expiry
@@ -515,6 +564,15 @@ function returnNumbersOnly(theOriginalString) {
 ///////
 
 //start server
-app.listen(process.env.PORT, process.env.IP, function(){
-    console.log("server started homie @ %s:%s", process.env.IP, process.env.PORT );
-});
+
+//Cloud 9 start server
+// app.listen(process.env.PORT, process.env.IP, function(){
+//     console.log("server started homie @ %s:%s", process.env.IP, process.env.PORT );
+// });
+
+//localhost start server
+app.listen(3000, () => console.log("server started homie "))
+
+
+
+

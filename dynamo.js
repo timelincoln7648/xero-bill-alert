@@ -33,6 +33,16 @@ module.exports = {
         
         return docClient.scan(params).promise();
     },
+
+    getUserForOrgId: function (orgId) {
+        var params = {
+            TableName: "users",
+            FilterExpression: "orgID = :val",
+            ExpressionAttributeValues: {":val": orgId}
+        };
+        
+        return docClient.scan(params).promise();
+    },
     
     createUser: function (phoneNumber) {
         //add attributes to item
