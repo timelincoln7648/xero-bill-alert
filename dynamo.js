@@ -111,6 +111,24 @@ module.exports = {
         
         //return promise object for async and success/failure handling in main app.js
       return docClient.update(params).promise();
+    }, 
+
+    updateUserAmountLimit: function (phoneNumber, amountLimit) {
+      var params = {
+         TableName: "users",
+         Key: 
+            {
+                'phoneNumber': phoneNumber
+            },
+        UpdateExpression: "set amountLimit = :amountLimit",
+            ExpressionAttributeValues: {
+                ":amountLimit": amountLimit
+            },
+            ReturnValues:"UPDATED_NEW"
+        };
+        
+        //return promise object for async and success/failure handling in main app.js
+      return docClient.update(params).promise();
     }
     
   

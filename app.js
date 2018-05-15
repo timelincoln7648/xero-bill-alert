@@ -77,6 +77,7 @@ app.get('/getStarted', function(req, res) {
 app.get('/settings', function(req, res){
     var connectionStatus = connectedToXero(req);
     var orgName = req.session.orgName;
+    var currentAmountLimit = "";    //string that you compare after casting to int, value of -1  means no alerts
     
     // use to block access to settings to logged in only
     if (req.session.userLoggedIn) {
@@ -84,12 +85,48 @@ app.get('/settings', function(req, res){
             console.log("session token undefined, redirecting to refreshXeroAccessToken route...");
             res.redirect('/refreshXeroAccessToken');
         } else {
-            res.render('settings', {connectionStatus: connectionStatus, orgName: orgName});
+
+            dynamo.getUser(req.session.userPhoneNumber).then(
+              function(data) {
+                if (data.Item.amountLimit == undefined) {
+                    //pass value to placeholder in form
+                    console.log("dynamo amountLimit undefined");
+                    currentAmountLimit = "not set";
+                } else {
+                    //prefil the form with the value
+                    console.log("dynamo amountLimit defined: ", data.Item.amountLimit);
+                    currentAmountLimit = data.Item.amountLimit;
+                }
+
+                res.render('settings', {connectionStatus: connectionStatus, orgName: orgName, currentAmountLimit: currentAmountLimit});
+
+              }
+            ).catch(function(error) {
+                console.log(error);
+                res.redirect('/');
+            });
         }
     } else {
         //if you're not logged in you can't get to settings
         res.redirect('/');
     }
+
+});
+
+
+app.post('/saveAmountLimit', function(req, res) {
+
+    console.log("ready to save amount limit to: ", req.body.amount);
+    dynamo.updateUserAmountLimit(req.session.userPhoneNumber, req.body.amount).then(
+          function(data) {
+            res.redirect('/settings');
+
+        }).catch(function(error) {
+            console.log(error);
+            res.redirect('/');
+        });
+
+
 });
 
 //
