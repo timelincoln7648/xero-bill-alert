@@ -53,7 +53,6 @@ var xero = new XeroClient(config);
 
 // Home Page
 app.get('/', function(req, res) {
-    console.log("config.json: ", config);
     res.render('home');
 });
 
