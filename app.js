@@ -10,7 +10,8 @@ var express = require("express"),
     dynamo = require('./dynamo'),
     twilio = require('./twilio'),
     dailyJob = require('./scheduledJob'),
-    crypto = require("crypto");
+    crypto = require("crypto"),
+    currency = require('currency-formatter');
     
 
     
@@ -449,6 +450,7 @@ app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
                         let orgName = item.orgName;
                         let xeroAccessToken = item.xeroAccessToken;
                         var invoices = item.invoices;
+                        let orgShortCode = item.orgShortCode;
 
                         //use Xero access token to refresh and get a valid, current access token
                         
@@ -487,8 +489,12 @@ app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
                                     //overwrite the invoice at the index where the ID's match
                                     invoices[index] = scrubbedInvoice;
 
-                                } else if (eventType == "CREATE") {    
+                                } else if (eventType == "CREATE") {
+                                    //add to invoices array    
                                     invoices.push(scrubbedInvoice);
+
+                                    //text user if the amount is above the threshold
+                                    //textAmountAlert(phoneNumber, orgName, orgShortCode, invoice.InvoiceID, invoice.AmountDue, invoice.DueDateString);
                                 }
                                 //update dynamo
                                 dynamo.updateUserInvoices(phoneNumber, invoices).then(
@@ -529,6 +535,40 @@ app.get('/testFeature', function(req, res){
 //
 //MY HELPER FUNCTIONS
 //
+
+function textAmountAlert(phoneNumber, orgName, orgShortCode, invoiceId, amount, dueDate) {
+
+    
+    dynamo.getUser(phoneNumber).then(
+      function(data) {
+        if (data.Item.amountLimit == undefined) {
+            console.log("dynamo amountLimit undefined, not sending text");
+        } else {
+            console.log("sending text, dynamo amountLimit defined: ", data.Item.amountLimit);
+            let amountLimitInt = parseInt(data.Item.amountLimit);
+            let amountInt = parseInt(amount);
+            if (amount != undefined) {
+                if (amountInt > amountLimitInt) {
+                    var textString = "This is an instant notification from Bill Alert for Xero.\n\n"
+                    var deepLink = "https://go.xero.com/organisationlogin/default.aspx?shortcode="+orgShortCode+"&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID="+invoiceID;
+                    textString += orgName+" has a bill for "+currency.format(amount, { code: 'USD' })+" (over your notification threshold of "+currency.format(amountLimit, { code: 'USD' })+"), due on "+dateFormat(dueDate, "longDate")+".";
+                    textString += "\n\nClick below to view and pay this bill in Xero. \n";
+                    textString += deepLink;
+                    
+                    console.log(textString);
+
+                    //send text
+                    twilio.sendText(phoneNumber, textString);
+                }
+            }
+        }
+
+      }
+    ).catch(function(error) {
+        console.log(error);
+    });
+
+}
 
 
 
