@@ -10,7 +10,9 @@ var express = require("express"),
     dynamo = require('./dynamo'),
     twilio = require('./twilio'),
     dailyJob = require('./scheduledJob'),
-    crypto = require("crypto");
+    crypto = require("crypto"),
+    currency = require('currency-formatter'),
+    dateFormat = require('dateformat');
     
 
     
@@ -77,6 +79,7 @@ app.get('/getStarted', function(req, res) {
 app.get('/settings', function(req, res){
     var connectionStatus = connectedToXero(req);
     var orgName = req.session.orgName;
+    var currentAmountLimit = "";    //string that you compare after casting to int, value of -1  means no alerts
     
     // use to block access to settings to logged in only
     if (req.session.userLoggedIn) {
@@ -84,12 +87,48 @@ app.get('/settings', function(req, res){
             console.log("session token undefined, redirecting to refreshXeroAccessToken route...");
             res.redirect('/refreshXeroAccessToken');
         } else {
-            res.render('settings', {connectionStatus: connectionStatus, orgName: orgName});
+
+            dynamo.getUser(req.session.userPhoneNumber).then(
+              function(data) {
+                if (data.Item.amountLimit == undefined) {
+                    //pass value to placeholder in form
+                    console.log("dynamo amountLimit undefined");
+                    currentAmountLimit = "not set";
+                } else {
+                    //prefil the form with the value
+                    console.log("dynamo amountLimit defined: ", data.Item.amountLimit);
+                    currentAmountLimit = data.Item.amountLimit;
+                }
+
+                res.render('settings', {connectionStatus: connectionStatus, orgName: orgName, currentAmountLimit: currentAmountLimit});
+
+              }
+            ).catch(function(error) {
+                console.log(error);
+                res.redirect('/');
+            });
         }
     } else {
         //if you're not logged in you can't get to settings
         res.redirect('/');
     }
+
+});
+
+
+app.post('/saveAmountLimit', function(req, res) {
+
+    console.log("ready to save amount limit to: ", req.body.amount);
+    dynamo.updateUserAmountLimit(req.session.userPhoneNumber, req.body.amount).then(
+          function(data) {
+            res.redirect('/settings');
+
+        }).catch(function(error) {
+            console.log(error);
+            res.redirect('/');
+        });
+
+
 });
 
 //
@@ -413,6 +452,7 @@ app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
                         let orgName = item.orgName;
                         let xeroAccessToken = item.xeroAccessToken;
                         var invoices = item.invoices;
+                        let orgShortCode = item.orgShortCode;
 
                         //use Xero access token to refresh and get a valid, current access token
                         
@@ -451,8 +491,12 @@ app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
                                     //overwrite the invoice at the index where the ID's match
                                     invoices[index] = scrubbedInvoice;
 
-                                } else if (eventType == "CREATE") {    
+                                } else if (eventType == "CREATE") {
+                                    //add to invoices array    
                                     invoices.push(scrubbedInvoice);
+
+                                    //text user if the amount is above the threshold
+                                    textAmountAlert(phoneNumber, orgName, orgShortCode, invoice.InvoiceID, invoice.AmountDue, invoice.DueDateString);
                                 }
                                 //update dynamo
                                 dynamo.updateUserInvoices(phoneNumber, invoices).then(
@@ -493,6 +537,40 @@ app.get('/testFeature', function(req, res){
 //
 //MY HELPER FUNCTIONS
 //
+
+function textAmountAlert(phoneNumber, orgName, orgShortCode, invoiceID, amount, dueDate) {
+
+    
+    dynamo.getUser(phoneNumber).then(
+      function(data) {
+        if (data.Item.amountLimit == undefined) {
+            // console.log("dynamo amountLimit undefined, not sending webhook triggered text");
+        } else {
+            // console.log("dynamo amountLimit defined: ", data.Item.amountLimit);
+            let amountLimitInt = parseInt(data.Item.amountLimit);
+            let amountInt = parseInt(amount);
+            if (amount != undefined) {
+                if (amountInt > amountLimitInt) {
+                    var textString = "This is an instant notification from Bill Alert for Xero.\n\n"
+                    var deepLink = "https://go.xero.com/organisationlogin/default.aspx?shortcode="+orgShortCode+"&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID="+invoiceID;
+                    textString += orgName+" has a new bill for "+currency.format(amount, { code: 'USD' })+" (over your notification threshold of "+currency.format(data.Item.amountLimit, { code: 'USD' })+"), due on "+dateFormat(dueDate, "longDate")+".";
+                    textString += "\n\nClick below to view and pay this bill in Xero. \n";
+                    textString += deepLink;
+                    
+                    console.log(textString);
+
+                    //send text
+                    twilio.sendText(phoneNumber, textString);
+                }
+            }
+        }
+
+      }
+    ).catch(function(error) {
+        console.log(error);
+    });
+
+}
 
 
 

@@ -46,14 +46,35 @@
 <br>
 <hr>
 <br>
-<h2>
-    <a href="/testFeature">Test Feature</a>
-</h2>
+<div style="width: 40%;">
+
+    <h3>
+        You'll receive a text notification when new bills are made in Xero with more than this amount due.
+    </h3>
+</div>
+<br>
+<br>
+
+
+    <form id="myForm" class="ui form"  action="/saveAmountLimit" method="post">
+        <div id="moneyField" class="ui right labeled input">
+          <label for="amount" class="ui label">$</label>
+          <input type="text" id="amount" placeholder="<%= currentAmountLimit %>" name="amount" >
+          <div class="ui basic label">.00</div>
+          
+        </div>
+    </form>  
+    <input id="saveButton" type="submit" form="myForm" value="Save" class="ui green button"/>
+
+    
+
+
+<br>
 <br>
 <br>
 <hr>
 <br>
-<br>
+
 
 
 <% if (locals.userLoggedIn) { %> 
@@ -64,6 +85,26 @@
 
 <% } %>
 
+
+<br>
+<br>
+<br>
+
 </div>
+
+<script type="text/javascript">
+
+    // $(document).ready(function(){
+    //     $("#amount").change(function(){
+    //         alert($(this).val());
+    //     });
+
+    // });
+
+</script>
+
+
+
+
 
 <% include partials/footer %>
