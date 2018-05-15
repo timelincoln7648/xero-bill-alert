@@ -379,12 +379,13 @@ app.post('/checkVerificationCode', function(req, res){
 //xero webhooks
 app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
     
+    console.log("in webhook post route!!!");
 
-    // console.log("Req: Xero Signature:", req.headers['x-xero-signature'])
+    console.log("Req: Xero Signature:", req.headers['x-xero-signature'])
     // Generate Signature
     var xeroWebhookSignature = crypto.createHmac("sha256", xeroWebhookKey).update(req.body.toString()).digest("base64");
     
-    // console.log("Res: Xero Signature:", xeroWebhookSignature)
+    console.log("Res: Xero Signature:", xeroWebhookSignature)
 
     // ITR Check
     if (req.headers['x-xero-signature'] == xeroWebhookSignature) {
