@@ -22,7 +22,7 @@
   
 }
 
-#mainBox {
+.mainBox {
   text-align: center;
   margin-top: 2.0em;
 }
@@ -44,6 +44,10 @@
 #saveButton {
   display:inline-block;
   
+}
+
+a.item.active {
+  color: red;
 }
 
 h1 {

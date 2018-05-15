@@ -1,7 +1,6 @@
 <html>
   <head>
     <title>Xero Test App</title>
-    <!--<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.1.4/semantic.min.css">-->
     
     <link rel="stylesheet" type="text/css" href="/stylesheets/app.css">
     
@@ -10,10 +9,40 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2.9/semantic.min.js"></script>
   </head>
   <body>
-    <div class="ui fixed inverted menu">
+    <!-- <div class="ui fixed inverted menu">
       <div class="ui container">
         <div class="header item"><i class="bullhorn icon"></i>Xero Bill Alert</div>
         <a href="/" class="item">Home</a>
         <a href="/settings" class="item">Settings</a>
       </div>
+    </div> -->
+
+    <div id="topMenu" class="ui secondary pointing menu">
+      <a href="/" class="item topItem">
+        Home
+      </a>
+      <a href="/settings" class="item topItem">
+        Settings
+      </a>
     </div>
+
+<!-- trying to get menu items to active on click -->
+     <script>
+    //     $(document).ready(function() {
+    //       $('.ui.menu')
+    //       .on('click', '.item', function() {
+    //           alert('click detected!');
+
+    //          $(this).state();
+
+            // if(!$(this).hasClass('active')) {
+            //   $(this).addClass('active');
+            // } else {
+            //   $(this).removeClass('active');
+            // }
+    //       });
+    //     });
+      </script>
+
+
+
