@@ -3,5 +3,6 @@
 	"consumerKey": "FRZXTCG8YUB4C2P8DTOIEUAIS41FEM",
 	"consumerSecret": "BO9JLLSOLXWTHVJJQQ1LGKKRRKZ9PC",
 	"callbackUrl": "http://localhost:3000/accessXero", 
-	"privateKeyPath": "privatekey.pem"
+	"privateKeyPath": "privatekey.pem",
+	"webhookKey": "YNGJ+to1N5VqQbpUo07eeAyDP/z5VfrIwSMWnKgXcHlCuezpXR4D6poB0gSfPgkix6Xpw57bC7FpDgjojWjYnQ=="
 }

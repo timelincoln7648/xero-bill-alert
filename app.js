@@ -42,7 +42,7 @@ app.use(express.static("public"));
 app.use(bodyParser.urlencoded({extended: true}));
 
 //Xero Webhooks
-const xeroWebhookKey = 'YNGJ+to1N5VqQbpUo07eeAyDP/z5VfrIwSMWnKgXcHlCuezpXR4D6poB0gSfPgkix6Xpw57bC7FpDgjojWjYnQ==';
+const xeroWebhookKey = config.webhookKey;
 let xeroWebhookBodyParser = bodyParser.raw({ type: 'application/json' })
 var xero = new XeroClient(config);
 
@@ -53,6 +53,7 @@ var xero = new XeroClient(config);
 
 // Home Page
 app.get('/', function(req, res) {
+    console.log("config.json: ", config);
     res.render('home');
 });
 
@@ -92,11 +93,9 @@ app.get('/settings', function(req, res){
               function(data) {
                 if (data.Item.amountLimit == undefined) {
                     //pass value to placeholder in form
-                    console.log("dynamo amountLimit undefined");
                     currentAmountLimit = "not set";
                 } else {
                     //prefil the form with the value
-                    console.log("dynamo amountLimit defined: ", data.Item.amountLimit);
                     currentAmountLimit = data.Item.amountLimit;
                 }
 
@@ -112,23 +111,17 @@ app.get('/settings', function(req, res){
         //if you're not logged in you can't get to settings
         res.redirect('/');
     }
-
 });
 
 
 app.post('/saveAmountLimit', function(req, res) {
-
-    console.log("ready to save amount limit to: ", req.body.amount);
     dynamo.updateUserAmountLimit(req.session.userPhoneNumber, req.body.amount).then(
           function(data) {
             res.redirect('/settings');
-
         }).catch(function(error) {
             console.log(error);
             res.redirect('/');
         });
-
-
 });
 
 //
@@ -206,8 +199,6 @@ app.get('/accessXero', function(req, res) {
             console.log(error);
         });
         
-        
-    
         //store access token in database
         dynamo.updateUserXeroAccessToken(req.session.userPhoneNumber, accessToken).then(
           function(data) {
@@ -245,7 +236,7 @@ app.get('/refreshXeroAccessToken', function(req, res) {
     //load access token into session for use by xero client
     dynamo.getUser(req.session.userPhoneNumber).then(
       function(data) {
-        console.log("got user from DB: ", data.Item);
+        // console.log("got user from DB: ", data.Item);
         
         if (data.Item.xeroAccessToken == "empty" || data.Item.xeroAccessToken == undefined) {
             //user has deleted Xero token from Bill Alert app side or never authed before //redirect to settings
@@ -330,7 +321,7 @@ app.post('/verifyPhoneNumber', function(req, res) {
                     console.log("Couldn't find user in database.\n");
                     return res.redirect('/getStarted');
                 } else {
-                    console.log("got user from DB: ", data.Item);
+                    // console.log("got user from DB: ", data.Item);
                     req.session.registeredUserIsAttemptingLogin = "true";
                     userFound = true;
                 }
@@ -364,10 +355,6 @@ app.post('/verifyPhoneNumber', function(req, res) {
 
 app.post('/checkVerificationCode', function(req, res){
     
-    console.log("Before we compare codes, let's look at the session object:\n", req.session);
-    
-    //console.log("About to check this verification code: "+req.body.inputVerificationCode+" against session verification code: "+req.session.generatedRandomCode);
-    
     //compare input verification code to grenerated one
     if (req.body.inputVerificationCode == req.session.generatedRandomCode) {
 
@@ -378,10 +365,6 @@ app.post('/checkVerificationCode', function(req, res){
             //store userPhoneNumber now that they're verified/logged in
             req.session.userPhoneNumber = req.session.latestInputPhoneNumber;
             
-            console.log("Success logging in!");
-            
-            //TODO
-            //redirect to new route to load DB details into user session then redirect to settings
             
             res.redirect("/settings");
         } else {
@@ -409,7 +392,6 @@ app.post('/checkVerificationCode', function(req, res){
         
     } else {
         console.log("Code not verified. Please try again.");
-        //redirect to getting started to try again
         res.redirect('/');
     }
 });
@@ -418,13 +400,12 @@ app.post('/checkVerificationCode', function(req, res){
 //xero webhooks
 app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
     
-    console.log("in webhook post route!!!");
 
-    console.log("Req: Xero Signature:", req.headers['x-xero-signature'])
+    // console.log("Req: Xero Signature:", req.headers['x-xero-signature'])
     // Generate Signature
     var xeroWebhookSignature = crypto.createHmac("sha256", xeroWebhookKey).update(req.body.toString()).digest("base64");
     
-    console.log("Res: Xero Signature:", xeroWebhookSignature)
+    // console.log("Res: Xero Signature:", xeroWebhookSignature)
 
     // ITR Check
     if (req.headers['x-xero-signature'] == xeroWebhookSignature) {
@@ -557,8 +538,6 @@ function textAmountAlert(phoneNumber, orgName, orgShortCode, invoiceID, amount, 
                     textString += "\n\nClick below to view and pay this bill in Xero. \n";
                     textString += deepLink;
                     
-                    console.log(textString);
-
                     //send text
                     twilio.sendText(phoneNumber, textString);
                 }
@@ -636,7 +615,7 @@ function returnNumbersOnly(theOriginalString) {
 // SCHEDULED JOB
 //this runs for every user in the database!
 
-// dailyJob.start();
+dailyJob.start();
 
 ///////
 ///////////////

@@ -3,17 +3,15 @@ var twilio = require('./twilio'),
     schedule = require('node-schedule'),
     dateFormat = require('dateformat'),
     currency = require('currency-formatter');
-    
-const phoneNumber = '3615373072';
 
-//public functions
+
 
 module.exports = {
   
     start: function () {
         
-        // test run every 15 seconds
-        var dailyJob = schedule.scheduleJob('15 * * * * *', function() {
+        // run at 8:30am every day on deployed machine's clock
+        var dailyJob = schedule.scheduleJob('30 8 * * *', function() {
             const today = Date.now();
             console.log("Scheduled Daily Job Fired");
             
@@ -33,19 +31,10 @@ module.exports = {
                                         const dueDate = Date.parse(invoice.DueDateString);
                                         const dateDiffInDays = Math.abs((today - dueDate)/(1000 * 60 * 60 * 24));     //divide by milliseconds in a day
                                         
-                                        
+                                        //if bill has an amount due and is due +/- 3 days from today, send a text about it
                                         if ((invoice.AmountDue > 0) && (dateDiffInDays < 3)) {
-                                            //work with data
-                                            console.log("\nInvoiceID: ", invoice.InvoiceID);
-                                            console.log("Date diff: ", dateDiffInDays);
-                                            console.log("Due: ", dateFormat(dueDate, "longDate"));
-                                            console.log("Amount Due: ", invoice.AmountDue);
-                                            
-                                            //send text
                                             var text = makeTextMessageString(user.Item.orgName, user.Item.orgShortCode, invoice.InvoiceID, invoice.AmountDue, dueDate);
-                                            console.log(text);
                                             twilio.sendText(item.phoneNumber, text);
-                                            
                                         }
                                     });
                                 }
@@ -57,8 +46,6 @@ module.exports = {
                         
                     });
                     
-                    
-                    
                   }
                 ).catch(function(error) {
                     console.log("Error running scan: ", error);
@@ -66,21 +53,10 @@ module.exports = {
             
             })();
             
-            
         });
-        
-        //todo
-        //get users
-        //FOR EACH
-            //work with data
-            //make text with deep link(s)
-            //send text
-        
+      
     },
     
-    //other functions to export
-  
-
 };
 
 function makeTextMessageString(orgName, orgShortCode, invoiceID, amount, dueDate) {
@@ -101,18 +77,3 @@ function getUser (phoneNumber) {
             console.log(error);
         });
 }
-
-// Scheduled at 8:30 am each morning
-// var dailyJob = schedule.scheduleJob('30 8 * * *', function() {
-//     console.log("Scheduled Daily Job Fired")
-    
-//     //TODO get user bills from DB
-//     //check over for due date that matches today
-//     //IF you have bills that are due today!! 
-//         //build text message string with deep link
-//         //twilio send text to userPhoneNumber 
-    
-// })
-
-
-//private functions
