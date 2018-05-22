@@ -11,7 +11,7 @@ module.exports = {
     start: function () {
         
         // run at 8:30am every day on deployed machine's clock
-        var dailyJob = schedule.scheduleJob('30 8 * * *', function() {
+        var dailyJob = schedule.scheduleJob('30 * * * *', function() {
             const today = Date.now();
             console.log("Scheduled Daily Job Fired");
             

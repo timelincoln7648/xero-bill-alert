@@ -79,7 +79,7 @@ app.get('/getStarted', function(req, res) {
 app.get('/settings', function(req, res){
     var connectionStatus = connectedToXero(req);
     var orgName = req.session.orgName;
-    var currentAmountLimit = "";    //string that you compare after casting to int, value of -1  means no alerts
+    var currentAmountLimit = "";    //string that you compare after casting to int
     
     // use to block access to settings to logged in only
     if (req.session.userLoggedIn) {
@@ -476,7 +476,8 @@ app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
                                     invoices.push(scrubbedInvoice);
 
                                     //text user if the amount is above the threshold
-                                    textAmountAlert(phoneNumber, orgName, orgShortCode, invoice.InvoiceID, invoice.AmountDue, invoice.DueDateString);
+                                    textAmountAlert(phoneNumber, orgName, orgShortCode, invoice.InvoiceID, 
+                                        invoice.AmountDue, invoice.DueDateString);
                                 }
                                 //update dynamo
                                 dynamo.updateUserInvoices(phoneNumber, invoices).then(
@@ -486,6 +487,7 @@ app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
                                 ).catch(function(error) {
                                     console.log("error saving webhook details to dynamo: ", error);
                                 });
+
                             }
                         })();
                       }
