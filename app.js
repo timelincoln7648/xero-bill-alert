@@ -625,12 +625,12 @@ dailyJob.start();
 //start server
 
 //Cloud 9 start server
-// app.listen(process.env.PORT, process.env.IP, function(){
-//     console.log("server started homie @ %s:%s", process.env.IP, process.env.PORT );
-// });
+app.listen(process.env.PORT, process.env.IP, function(){
+    console.log("server started homie @ %s:%s", process.env.IP, process.env.PORT );
+});
 
 //localhost start server
-app.listen(3000, () => console.log("server started homie "))
+// app.listen(3000, () => console.log("server started homie "))
 
 
 
