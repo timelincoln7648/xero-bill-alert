@@ -36,7 +36,9 @@ This app uses [express](https://www.npmjs.com/package/express) and [express-sess
 4. Type touch .env, then open .env, then add your twilio credentials like the below example. The NPM module dotenv will pull these values from the .env automatically and load them into twilioConfig.js for you. 
 
     TWILIO_ACCOUNT_SID = 'REPLACE_ME'
+    
     TWILIO_AUTH_TOKEN = 'REPLACE_ME'
+    
     NOTIFY_SERVICE_SID = 'REPLACE_ME'
 
 5. Get your Xero config details from developer.xero.com -> My Apps and fill in the config.json file with the correct consumer key and secret. Remember to set the webhook key and Xero OAuth callback URL according to your server root URL as well. 
