@@ -17,8 +17,8 @@ var express = require("express"),
 
     
 
-// Set the region 
-AWS.config.update({region: 'us-east-2'});
+// Set the region if you need to
+// AWS.config.update({region: 'eu-east-2'});
 
 var app = express();
 //from xero-node sample app
@@ -374,7 +374,6 @@ app.post('/checkVerificationCode', function(req, res){
             //store new user in DB
             dynamo.createUser(req.session.userPhoneNumber).then(
               function(data) {
-                /* process the data */
                 console.log("Created new user with phone number: ", data.item);
                 
                 //setup user logged-in session
@@ -395,6 +394,8 @@ app.post('/checkVerificationCode', function(req, res){
     }
 });
 
+//to test webhooks (needs https) on localhost you can use a tool like ngrok to forward requests from
+//ngrok https to your local server
 
 //xero webhooks
 app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
@@ -407,6 +408,9 @@ app.post('/webhook', xeroWebhookBodyParser, function(req, res) {
     // console.log("Res: Xero Signature:", xeroWebhookSignature)
 
     // ITR Check
+    //part of initial set up of webhooks is passing ITR (Intent to Recieve)
+    //See Xero Webhooks docs for more information
+
     if (req.headers['x-xero-signature'] == xeroWebhookSignature) {
         
         // ITR has succeeded, lets process the webhook
@@ -625,9 +629,9 @@ dailyJob.start();
 //start server
 
 //Cloud 9 start server
-app.listen(process.env.PORT, process.env.IP, function(){
-    console.log("server started homie @ %s:%s", process.env.IP, process.env.PORT );
-});
+// app.listen(80,  function(){
+//     console.log("server started homie ");
+// });
 
 //localhost start server
 // app.listen(3000, () => console.log("server started homie "))
