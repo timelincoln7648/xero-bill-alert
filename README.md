@@ -27,7 +27,7 @@ This app uses [express](https://www.npmjs.com/package/express) and [express-sess
 
 1. Download the app code
 
-	 Clone the repo - https://github.com/timelincoln7648/xero-bill-alert 
+	 Clone the repo - https://github.com/XeroAPI/bill-alert
 
 2. cd into the project directory 
 
