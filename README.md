@@ -1,6 +1,11 @@
-# Bill Alert Readme
+# Bill Alert Readme (deprecated)
 
+## OAuth1.0a deprecation
+* Early December 2019 - No new OAuth 1.0a apps created.
+* Mid December 2019 - OAuth 2.0 migration endpoint available to partner apps.
+* December 2020 - OAuth 1.0a no longer supported for existing integrations.
 
+--------------------------------
 ## About
 This is a sample app created by [Xero - "Beautiful Business"](https://xero.com). This app allows users to register with just a phone number, using Twilio to send texts to verify the phone number and register the user. The app allows users to connect their Xero account after which the app pulls down info of all unpaid bills. The app will send a reminder text to the user near the day the bill is due, with a deep link to view and pay the bill back in Xero. The app will also send an instant notification to the user when a bill is created in Xero for an amount over the user defined threshold. The app uses Xero Webhooks to keep the database of bills consistent (no periodic checks of the API!). The app also uses webhooks to faciliate the instant notification. 
 
